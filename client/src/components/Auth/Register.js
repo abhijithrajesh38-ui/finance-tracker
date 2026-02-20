@@ -1,0 +1,93 @@
+import React, { useState } from 'react';
+import './Auth.css';
+
+function Register({ onSwitchToLogin }) {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, password })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert('Registration successful! Please login.');
+        onSwitchToLogin();
+      } else {
+        alert(data.message || 'Registration failed');
+      }
+    } catch (error) {
+      alert('Error connecting to server');
+      console.error(error);
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-box">
+        <div className="logo">fb</div>
+        <h1>Hello!</h1>
+        <p className="subtitle">Sign Up to Get Started</p>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <span className="input-icon">👤</span>
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <span className="input-icon">✉</span>
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <span className="input-icon">🔒</span>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="toggle-password"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              👁
+            </button>
+          </div>
+
+          <button type="submit" className="login-btn">Login</button>
+        </form>
+
+        <p className="register-link">
+          Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToLogin(); }}>Log in</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default Register;
