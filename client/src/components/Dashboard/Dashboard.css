@@ -3,6 +3,7 @@
   min-height: 100vh;
   background: #f5f5f0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  overflow-x: hidden;
 }
 
 .sidebar {
@@ -70,8 +71,10 @@
 
 .main-content {
   flex: 1;
-  padding: 30px 40px;
+  padding: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  max-width: calc(100vw - 220px);
 }
 
 .top-bar {
@@ -79,6 +82,10 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+  width: 100%;
+  height: 124px;
+  padding: 32px 40px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .date {
@@ -131,8 +138,9 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
   margin-bottom: 30px;
-  max-width: 1536px;
+  max-width: 100%;
   min-height: 229px;
+  padding: 0 40px;
 }
 
 .stat-card {
@@ -198,7 +206,9 @@
   display: grid;
   grid-template-columns: 1fr 519px;
   gap: 24px;
-  max-width: 1536px;
+  max-width: 100%;
+  align-items: start;
+  padding: 0 40px;
 }
 
 .chart-section, .right-sidebar {
@@ -207,8 +217,15 @@
   gap: 20px;
 }
 
+.chart-section {
+  height: 654px;
+  min-width: 0;
+}
+
 .right-sidebar {
-  max-width: 519px;
+  width: 519px;
+  height: 654px;
+  flex-shrink: 0;
 }
 
 .right-sidebar > div {
@@ -225,11 +242,13 @@
   background: #fff;
   padding: 32px;
   border-radius: 24px;
-  min-height: 654px;
-  height: 100%;
+  border: 1px solid #e0e0e0;
+  height: 654px;
+  width: 519px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  overflow: visible;
 }
 
 .section-header {
@@ -317,18 +336,25 @@
   background: #fff;
   padding: 32px;
   border-radius: 24px;
+  border: 1px solid #e0e0e0;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  max-width: 991px;
-  min-height: 654px;
-  height: 100%;
+  gap: 24px;
+  width: 100%;
+  height: 654px;
+  overflow: hidden;
+}
+
+.section-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .section-subtitle {
   font-size: 13px;
   color: #999;
-  margin-top: 5px;
+  margin-top: 4px;
   font-weight: 400;
 }
 
@@ -338,17 +364,19 @@
   font-size: 11px;
   color: #666;
   letter-spacing: 0.5px;
+  margin-bottom: 10px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  text-transform: uppercase;
 }
 
 .legend-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }
 
@@ -360,28 +388,40 @@
   background: #999;
 }
 
+.chart-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  padding-bottom: 32px;
+}
+
 .bar-chart {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: flex-end;
-  height: 400px;
-  padding: 30px 0;
-  gap: 60px;
+  width: 100%;
+  max-width: 700px;
+  height: 100%;
+  gap: 50px;
+  padding: 0 16px;
 }
 
 .bar-group {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  flex: 1;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  height: 350px;
 }
 
 .bar {
-  width: 100%;
-  max-width: 60px;
-  border-radius: 12px;
-  margin: 0 5px;
+  width: 24px;
+  border-radius: 24px 24px 0 0;
+  transition: all 0.3s ease;
+  max-height: 350px;
 }
 
 .bar.income {
@@ -395,9 +435,13 @@
 .bar-label {
   font-size: 11px;
   color: #999;
-  margin-top: 15px;
+  margin-top: 12px;
   letter-spacing: 0.5px;
   font-weight: 500;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  text-transform: uppercase;
 }
 
 .transactions-section {
@@ -500,14 +544,18 @@
 }
 
 .insight-item {
-  padding: 24px;
+  padding: 16px;
   border: 1px solid #e8e8e8;
-  border-radius: 16px;
+  border-radius: 24px;
   background: #fafafa;
+  min-height: 83px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .insight-item:last-child {
-  border-bottom: 1px solid #e8e8e8;
+  border: 1px solid #e8e8e8;
 }
 
 .insight-header {
@@ -524,7 +572,7 @@
   font-weight: 500;
   text-transform: uppercase;
   background: #fff;
-  padding: 4px 12px;
+  padding: 6px 14px;
   border-radius: 12px;
   border: 1px solid #e8e8e8;
 }
@@ -609,8 +657,9 @@
   display: grid;
   grid-template-columns: 1fr 519px;
   gap: 24px;
-  max-width: 1536px;
+  max-width: 100%;
   margin-top: 24px;
+  padding: 0 40px 40px 40px;
 }
 
 .right-sidebar-bottom {

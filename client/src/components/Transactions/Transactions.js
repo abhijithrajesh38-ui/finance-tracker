@@ -1,21 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Transactions.css';
+import AddTransactionModal from './AddTransactionModal';
 
-function Transactions() {
+function Transactions({ userId }) {
   const [filter, setFilter] = useState('Month');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const transactions = [
-    { id: 1, name: 'Netflix', type: 'Out', date: 'Feb 12, 2026', category: 'Entertainment', amount: -15.9, icon: '📺' },
-    { id: 2, name: 'Netflix', type: 'Out', date: 'Feb 12, 2026', category: 'Entertainment', amount: -15.9, icon: '📺' },
-    { id: 3, name: 'Salary', type: 'In', date: 'Feb 13, 2026', category: 'Income', amount: 24000, icon: '💰' },
-    { id: 4, name: 'Netflix', type: 'Out', date: 'Feb 12, 2026', category: 'Entertainment', amount: -15.9, icon: '📺' },
-    { id: 5, name: 'Salary', type: 'In', date: 'Feb 13, 2026', category: 'Income', amount: 24000, icon: '💰' },
-    { id: 6, name: 'Netflix', type: 'Out', date: 'Feb 12, 2026', category: 'Entertainment', amount: -15.9, icon: '📺' },
-    { id: 7, name: 'Netflix', type: 'Out', date: 'Feb 12, 2026', category: 'Entertainment', amount: -15.9, icon: '📺' },
-    { id: 8, name: 'Salary', type: 'In', date: 'Feb 12, 2026', category: 'Income', amount: 24000, icon: '💰' },
-    { id: 9, name: 'Salary', type: 'In', date: 'Feb 12, 2026', category: 'Income', amount: 24000, icon: '💰' },
-    { id: 10, name: 'Netflix', type: 'Out', date: 'Feb 13, 2026', category: 'Entertainment', amount: -15.9, icon: '📺' },
-  ];
+  useEffect(() => {
+    if (userId) {
+      fetchTransactions();
+    }
+  }, [userId]);
+
+  const fetchTransactions = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/transactions?userId=${userId}`);
+      const data = await response.json();
+      setTransactions(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleTransactionSuccess = () => {
+    fetchTransactions();
+    alert('Transaction added successfully!');
+  };
+
+  // Calculate totals
+  const totalIn = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const totalOut = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const netSavings = totalIn - totalOut;
+  const totalCount = transactions.length;
+  const inCount = transactions.filter(t => t.type === 'income').length;
+  const outCount = transactions.filter(t => t.type === 'expense').length;
+
+  const getIcon = (category) => {
+    const icons = {
+      'Entertainment': '📺',
+      'Income': '💰',
+      'Salary': '💰',
+      'Food': '🍔',
+      'Transport': '🚗',
+      'Shopping': '🛍️',
+      'Bills': '📄',
+      'Health': '🏥'
+    };
+    return icons[category] || '💳';
+  };
+
+  if (loading) {
+    return <div className="transactions-page">Loading...</div>;
+  }
 
   return (
     <div className="transactions-page">
@@ -24,8 +70,15 @@ function Transactions() {
           <div className="date">FEBRUARY 2026</div>
           <h1>Transactions</h1>
         </div>
-        <button className="add-btn">+ Add Transactions</button>
+        <button className="add-btn" onClick={() => setIsModalOpen(true)}>+ Add Transactions</button>
       </header>
+
+      <AddTransactionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        userId={userId}
+        onSuccess={handleTransactionSuccess}
+      />
 
       <div className="filter-tabs">
         <button className={filter === 'Week' ? 'tab active' : 'tab'} onClick={() => setFilter('Week')}>Week</button>
@@ -36,22 +89,22 @@ function Transactions() {
       <div className="summary-cards">
         <div className="summary-card green">
           <div className="summary-label">Total In</div>
-          <div className="summary-value">₹1,45,800</div>
-          <div className="summary-count">18 transactions</div>
+          <div className="summary-value">₹{totalIn.toLocaleString()}</div>
+          <div className="summary-count">{inCount} transactions</div>
         </div>
         <div className="summary-card red">
           <div className="summary-label">Total Out</div>
-          <div className="summary-value">₹85,000</div>
-          <div className="summary-count">30 transactions</div>
+          <div className="summary-value">₹{totalOut.toLocaleString()}</div>
+          <div className="summary-count">{outCount} transactions</div>
         </div>
         <div className="summary-card white">
           <div className="summary-label">Net Savings</div>
-          <div className="summary-value">₹45,800</div>
-          <div className="summary-count">+8.6% savings rate</div>
+          <div className="summary-value">₹{netSavings.toLocaleString()}</div>
+          <div className="summary-count">{totalIn > 0 ? `${((netSavings/totalIn)*100).toFixed(1)}%` : '0%'} savings rate</div>
         </div>
         <div className="summary-card white">
           <div className="summary-label">Total Count</div>
-          <div className="summary-value">45</div>
+          <div className="summary-value">{totalCount}</div>
           <div className="summary-count">transactions this month</div>
         </div>
       </div>
@@ -83,30 +136,36 @@ function Transactions() {
           <div className="col-amount">AMOUNT</div>
         </div>
 
-        {transactions.map(transaction => (
-          <div key={transaction.id} className="table-row">
-            <div className="col-merchant">
-              <div className="merchant-icon">{transaction.icon}</div>
-              <span>{transaction.name}</span>
-            </div>
-            <div className={`col-type ${transaction.type === 'In' ? 'type-in' : 'type-out'}`}>
-              {transaction.type}
-            </div>
-            <div className="col-date">{transaction.date}</div>
-            <div className="col-category">
-              <span className={`category-badge ${transaction.type === 'In' ? 'badge-green' : 'badge-red'}`}>
-                {transaction.category}
-              </span>
-            </div>
-            <div className={`col-amount ${transaction.amount > 0 ? 'amount-positive' : 'amount-negative'}`}>
-              {transaction.amount > 0 ? '+' : ''}₹{Math.abs(transaction.amount).toLocaleString()}
-            </div>
+        {transactions.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+            No transactions yet. Click "Add Transactions" to get started.
           </div>
-        ))}
+        ) : (
+          transactions.map(transaction => (
+            <div key={transaction._id} className="table-row">
+              <div className="col-merchant">
+                <div className="merchant-icon">{getIcon(transaction.category)}</div>
+                <span>{transaction.description}</span>
+              </div>
+              <div className={`col-type ${transaction.type === 'income' ? 'type-in' : 'type-out'}`}>
+                {transaction.type === 'income' ? 'In' : 'Out'}
+              </div>
+              <div className="col-date">{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+              <div className="col-category">
+                <span className={`category-badge ${transaction.type === 'income' ? 'badge-green' : 'badge-red'}`}>
+                  {transaction.category}
+                </span>
+              </div>
+              <div className={`col-amount ${transaction.type === 'income' ? 'amount-positive' : 'amount-negative'}`}>
+                {transaction.type === 'income' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString()}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="pagination">
-        <span>Showing 10 of 45 transactions</span>
+        <span>Showing {transactions.length} of {transactions.length} transactions</span>
         <button className="page-btn">◀</button>
       </div>
     </div>

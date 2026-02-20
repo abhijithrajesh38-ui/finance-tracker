@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
+import transactionRoutes from './routes/transactions.js';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
