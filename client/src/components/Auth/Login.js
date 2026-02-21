@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './Auth.css';
 import logo from '../../assets/images/Vector.svg';
+import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 
 function Login({ onSwitchToRegister, onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -41,7 +42,7 @@ function Login({ onSwitchToRegister, onLoginSuccess }) {
         
         <form onSubmit={handleSubmit}>
           <div className="input-group">
-            <span className="input-icon">✉</span>
+            <span className="input-icon"><MdEmail /></span>
             <input
               type="email"
               placeholder="Email Address"
@@ -52,7 +53,7 @@ function Login({ onSwitchToRegister, onLoginSuccess }) {
           </div>
 
           <div className="input-group">
-            <span className="input-icon">🔒</span>
+            <span className="input-icon"><MdLock /></span>
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="Password"
@@ -65,7 +66,7 @@ function Login({ onSwitchToRegister, onLoginSuccess }) {
               className="toggle-password"
               onClick={() => setShowPassword(!showPassword)}
             >
-              👁
+              {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
             </button>
           </div>
 

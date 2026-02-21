@@ -1,5 +1,6 @@
-import React from 'react';
+import { useState } from 'react';
 import './Sidebar.css';
+import { MdDashboard, MdAttachMoney, MdAccountBalanceWallet, MdEco } from 'react-icons/md';
 
 function Sidebar({ currentPage, onNavigate }) {
   return (
@@ -10,26 +11,26 @@ function Sidebar({ currentPage, onNavigate }) {
           className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
           onClick={() => onNavigate('dashboard')}
         >
-          <span>📊</span> Dashboard
+          <span><MdDashboard /></span> Dashboard
         </div>
         <div 
           className={`nav-item ${currentPage === 'transactions' ? 'active' : ''}`}
           onClick={() => onNavigate('transactions')}
         >
-          <span>💸</span> Transactions
+          <span><MdAttachMoney /></span> Transactions
         </div>
         <div 
           className={`nav-item ${currentPage === 'budget' ? 'active' : ''}`}
           onClick={() => onNavigate('budget')}
         >
-          <span>💼</span> Budget
+          <span><MdAccountBalanceWallet /></span> Budget
         </div>
         <div className="nav-separator"></div>
         <div 
           className={`nav-item ${currentPage === 'finn' ? 'active' : ''}`}
           onClick={() => onNavigate('finn')}
         >
-          <span>🌱</span> Finn
+          <span><MdEco /></span> Finn
         </div>
       </nav>
     </aside>

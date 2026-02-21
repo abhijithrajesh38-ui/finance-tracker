@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './Budget.css';
+import { MdShoppingCart, MdRestaurant, MdTv, MdShoppingBag, MdLocalHospital, MdDirectionsCar, MdDescription, MdSchool, MdCreditCard, MdDelete } from 'react-icons/md';
 
 function Budget({ userId }) {
   const [budgets, setBudgets] = useState([]);
@@ -99,16 +100,16 @@ function Budget({ userId }) {
 
   const getIcon = (category) => {
     const icons = {
-      'Groceries': '🛒',
-      'Food': '🍔',
-      'Entertainment': '📺',
-      'Shopping': '🛍️',
-      'Health': '🏥',
-      'Transport': '🚗',
-      'Bills': '📄',
-      'Education': '📚'
+      'Groceries': <MdShoppingCart />,
+      'Food': <MdRestaurant />,
+      'Entertainment': <MdTv />,
+      'Shopping': <MdShoppingBag />,
+      'Health': <MdLocalHospital />,
+      'Transport': <MdDirectionsCar />,
+      'Bills': <MdDescription />,
+      'Education': <MdSchool />
     };
-    return icons[category] || '💳';
+    return icons[category] || <MdCreditCard />;
   };
 
   const getProgressColor = (percentage) => {
@@ -183,7 +184,7 @@ function Budget({ userId }) {
                     <span className="amount-total">/₹{budget.limit.toLocaleString()}</span>
                   </div>
                   <div className="budget-actions">
-                    <button className="action-btn delete" onClick={() => handleDelete(budget._id)}>🗑️</button>
+                    <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
                   </div>
                 </div>
                 <div className="budget-progress-bar">

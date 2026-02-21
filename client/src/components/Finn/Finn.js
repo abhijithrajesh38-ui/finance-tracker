@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './Finn.css';
+import { MdEco, MdPerson } from 'react-icons/md';
 
 function Finn({ userId }) {
   const [messages, setMessages] = useState([]);
@@ -58,7 +59,7 @@ function Finn({ userId }) {
       <div className="finn-header">
         <div className="finn-logo">
           <div className="finn-icon-box">
-            <span>🌱</span>
+            <MdEco />
           </div>
           <div className="finn-title">
             <span className="finn-name">Finn</span>
@@ -77,7 +78,7 @@ function Finn({ userId }) {
             {messages.map((message, index) => (
               <div key={index} className={`finn-message ${message.role}`}>
                 <div className="message-avatar">
-                  {message.role === 'assistant' ? '🌱' : '👤'}
+                  {message.role === 'assistant' ? <MdEco /> : <MdPerson />}
                 </div>
                 <div className="message-content">
                   <div className="message-text">{message.content}</div>
@@ -86,7 +87,7 @@ function Finn({ userId }) {
             ))}
             {isTyping && (
               <div className="finn-message assistant">
-                <div className="message-avatar">🌱</div>
+                <div className="message-avatar"><MdEco /></div>
                 <div className="message-content">
                   <div className="typing-indicator">
                     <span></span>
