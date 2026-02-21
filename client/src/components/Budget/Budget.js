@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import './Budget.css';
-import { MdShoppingCart, MdRestaurant, MdTv, MdShoppingBag, MdLocalHospital, MdDirectionsCar, MdDescription, MdSchool, MdCreditCard, MdDelete } from 'react-icons/md';
+import { MdShoppingCart, MdRestaurant, MdTv, MdShoppingBag, MdLocalHospital, MdDirectionsCar, MdDescription, MdSchool, MdCreditCard, MdDelete, MdEdit } from 'react-icons/md';
 
 function Budget({ userId }) {
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingBudget, setEditingBudget] = useState(null);
   const [formData, setFormData] = useState({
     category: '',
     limit: '',
@@ -54,8 +55,14 @@ function Budget({ userId }) {
       
       console.log('Sending budget data:', budgetData);
       
-      const response = await fetch('http://localhost:5000/api/budgets', {
-        method: 'POST',
+      const url = editingBudget 
+        ? `http://localhost:5000/api/budgets/${editingBudget._id}`
+        : 'http://localhost:5000/api/budgets';
+      
+      const method = editingBudget ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(budgetData)
       });
@@ -65,6 +72,7 @@ function Budget({ userId }) {
       
       if (response.ok) {
         setShowModal(false);
+        setEditingBudget(null);
         setFormData({
           category: '',
           limit: '',
@@ -74,12 +82,24 @@ function Budget({ userId }) {
         });
         fetchBudgets();
       } else {
-        alert(data.message || 'Failed to create budget');
+        alert(data.message || 'Failed to save budget');
       }
     } catch (error) {
-      console.error('Error creating budget:', error);
-      alert('Failed to create budget: ' + error.message);
+      console.error('Error saving budget:', error);
+      alert('Failed to save budget: ' + error.message);
     }
+  };
+
+  const handleEdit = (budget) => {
+    setEditingBudget(budget);
+    setFormData({
+      category: budget.category,
+      limit: budget.limit,
+      month: budget.month,
+      year: budget.year,
+      alertAt: budget.alertAt
+    });
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -184,6 +204,7 @@ function Budget({ userId }) {
                     <span className="amount-total">/₹{budget.limit.toLocaleString()}</span>
                   </div>
                   <div className="budget-actions">
+                    <button className="action-btn edit" onClick={() => handleEdit(budget)}><MdEdit /></button>
                     <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
                   </div>
                 </div>
@@ -207,8 +228,8 @@ function Budget({ userId }) {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Set Budget</h2>
-              <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
+              <h2>{editingBudget ? 'Edit Budget' : 'Set Budget'}</h2>
+              <button className="close-btn" onClick={() => { setShowModal(false); setEditingBudget(null); }}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import './Sidebar.css';
-import { MdDashboard, MdAttachMoney, MdAccountBalanceWallet, MdEco } from 'react-icons/md';
+import { MdDashboard, MdAttachMoney, MdAccountBalanceWallet, MdEco, MdDescription } from 'react-icons/md';
 
 function Sidebar({ currentPage, onNavigate }) {
   return (
@@ -24,6 +24,12 @@ function Sidebar({ currentPage, onNavigate }) {
           onClick={() => onNavigate('budget')}
         >
           <span><MdAccountBalanceWallet /></span> Budget
+        </div>
+        <div 
+          className={`nav-item ${currentPage === 'report' ? 'active' : ''}`}
+          onClick={() => onNavigate('report')}
+        >
+          <span><MdDescription /></span> Report
         </div>
         <div className="nav-separator"></div>
         <div 

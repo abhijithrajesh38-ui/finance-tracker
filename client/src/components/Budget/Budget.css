@@ -242,6 +242,8 @@
   border-radius: 10px;
   font-size: 14px;
   font-family: inherit;
+  color: #333;
+  background: #fff;
 }
 
 .form-group input:focus,

@@ -4,6 +4,7 @@ import Sidebar from '../Sidebar/Sidebar';
 import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
 import Finn from '../Finn/Finn';
+import Report from '../Report/Report';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
   MdNotifications, MdPerson, MdWarning, MdTv, MdRestaurant,
@@ -231,6 +232,17 @@ function Dashboard({ user }) {
         <Sidebar currentPage="budget" onNavigate={setCurrentPage} />
         <main className="main-content">
           <Budget userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
+  if (currentPage === 'report') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="report" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Report userId={user.id} />
         </main>
       </div>
     );
