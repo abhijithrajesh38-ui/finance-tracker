@@ -25,7 +25,10 @@ function Sidebar({ currentPage, onNavigate }) {
           <span>💼</span> Budget
         </div>
         <div className="nav-separator"></div>
-        <div className="nav-item">
+        <div 
+          className={`nav-item ${currentPage === 'finn' ? 'active' : ''}`}
+          onClick={() => onNavigate('finn')}
+        >
           <span>🌱</span> Finn
         </div>
       </nav>

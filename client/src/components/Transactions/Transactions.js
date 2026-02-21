@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './Transactions.css';
 import AddTransactionModal from './AddTransactionModal';
 
-function Transactions({ userId }) {
+function Transactions({ userId, onTransactionChange }) {
   const [filter, setFilter] = useState('Month');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
@@ -24,6 +24,10 @@ function Transactions({ userId }) {
       const data = await response.json();
       setTransactions(data);
       setLoading(false);
+      // Notify parent component
+      if (onTransactionChange) {
+        onTransactionChange();
+      }
     } catch (error) {
       console.error('Error fetching transactions:', error);
       setLoading(false);

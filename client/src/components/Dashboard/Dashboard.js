@@ -3,6 +3,7 @@ import './Dashboard.css';
 import Sidebar from '../Sidebar/Sidebar';
 import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
+import Finn from '../Finn/Finn';
 
 function Dashboard({ user }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -11,10 +12,18 @@ function Dashboard({ user }) {
   const [chartFilter, setChartFilter] = useState('Month');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [budgetAlerts, setBudgetAlerts] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [budgets, setBudgets] = useState([]);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+
+  console.log('Dashboard user object:', user);
 
   useEffect(() => {
     if (user && user.id) {
       fetchTransactions();
+      fetchBudgetAlerts();
+      fetchBudgets();
     }
   }, [user]);
 
@@ -24,9 +33,37 @@ function Dashboard({ user }) {
       const data = await response.json();
       setTransactions(data);
       setLoading(false);
+      // Refresh alerts and budgets after fetching transactions
+      fetchBudgetAlerts();
+      fetchBudgets();
     } catch (error) {
       console.error('Error fetching transactions:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchBudgetAlerts = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/budgets/alerts?userId=${user.id}`);
+      const data = await response.json();
+      console.log('Budget alerts:', data);
+      setBudgetAlerts(data);
+      // Check if there are new alerts
+      if (data.length > 0) {
+        setHasUnreadNotifications(true);
+      }
+    } catch (error) {
+      console.error('Error fetching budget alerts:', error);
+    }
+  };
+
+  const fetchBudgets = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/budgets?userId=${user.id}`);
+      const data = await response.json();
+      setBudgets(data);
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
     }
   };
 
@@ -149,6 +186,14 @@ function Dashboard({ user }) {
   const chartData = getChartData();
   const maxAmount = Math.max(...chartData.map(d => Math.max(d.income, d.expense)), 1);
 
+  const handleNotificationClick = () => {
+    setShowNotifications(!showNotifications);
+    // Mark as read when opened
+    if (!showNotifications) {
+      setHasUnreadNotifications(false);
+    }
+  };
+
   const getIcon = (category) => {
     const icons = {
       'Entertainment': '📺',
@@ -168,7 +213,7 @@ function Dashboard({ user }) {
       <div className="dashboard">
         <Sidebar currentPage="transactions" onNavigate={setCurrentPage} />
         <main className="main-content">
-          <Transactions userId={user.id} />
+          <Transactions userId={user.id} onTransactionChange={fetchTransactions} />
         </main>
       </div>
     );
@@ -179,8 +224,17 @@ function Dashboard({ user }) {
       <div className="dashboard">
         <Sidebar currentPage="budget" onNavigate={setCurrentPage} />
         <main className="main-content">
-          <Budget />
+          <Budget userId={user.id} />
         </main>
+      </div>
+    );
+  }
+
+  if (currentPage === 'finn') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="finn" onNavigate={setCurrentPage} />
+        <Finn userId={user.id} />
       </div>
     );
   }
@@ -203,7 +257,34 @@ function Dashboard({ user }) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <button className="icon-btn">🔔</button>
+            <div className="notification-container">
+              <button className="icon-btn" onClick={handleNotificationClick}>
+                🔔
+                {hasUnreadNotifications && budgetAlerts.length > 0 && (
+                  <span className="notification-badge">{budgetAlerts.length}</span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="notification-header">Budget Alerts</div>
+                  {budgetAlerts.length === 0 ? (
+                    <div className="notification-empty">No alerts</div>
+                  ) : (
+                    budgetAlerts.map((alert, index) => (
+                      <div key={index} className="notification-item">
+                        <div className="notification-title">⚠️ {alert.category}</div>
+                        <div className="notification-text">
+                          You've spent ₹{alert.spent.toLocaleString()} ({alert.percentage}%) of your ₹{alert.limit.toLocaleString()} budget
+                        </div>
+                        <div className="notification-date">
+                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][alert.month - 1]} {alert.year}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <div className="account-menu-container">
               <button className="icon-btn" onClick={() => setShowAccountMenu(!showAccountMenu)}>👤</button>
               {showAccountMenu && (
@@ -367,22 +448,35 @@ function Dashboard({ user }) {
             <div className="budgeting-section">
               <div className="section-header">
                 <h2>Budgeting</h2>
-                <a href="#" className="view-all">VIEW ALL</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('budget'); }} className="view-all">VIEW ALL</a>
               </div>
-              <div className="budget-item">
-                <div className="budget-label">Groceries</div>
-                <div className="budget-bar">
-                  <div className="budget-progress" style={{width: '80%'}}></div>
+              {budgets.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '14px' }}>
+                  No budgets set yet
                 </div>
-                <div className="budget-amount">$500 / $1,000</div>
-              </div>
-              <div className="budget-item">
-                <div className="budget-label">Leisure & Travel</div>
-                <div className="budget-bar">
-                  <div className="budget-progress" style={{width: '60%'}}></div>
-                </div>
-                <div className="budget-amount">$400 / $1,000</div>
-              </div>
+              ) : (
+                budgets.slice(0, 2).map(budget => {
+                  const percentage = budget.limit > 0 ? Math.round((budget.spent / budget.limit) * 100) : 0;
+                  return (
+                    <div key={budget._id} className="budget-item">
+                      <div className="budget-label">
+                        <span>{budget.category}</span>
+                        <span>{percentage}%</span>
+                      </div>
+                      <div className="budget-bar">
+                        <div 
+                          className="budget-progress" 
+                          style={{
+                            width: `${Math.min(percentage, 100)}%`,
+                            background: percentage >= 100 ? '#f44336' : percentage >= 80 ? '#ffd700' : '#1a1a1a'
+                          }}
+                        ></div>
+                      </div>
+                      <div className="budget-amount">₹{budget.spent.toLocaleString()} / ₹{budget.limit.toLocaleString()}</div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             <div className="savings-section">
