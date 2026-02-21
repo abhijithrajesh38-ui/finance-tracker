@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './Auth.css';
+import logo from '../../assets/images/Vector.svg';
 
 function Login({ onSwitchToRegister, onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -34,7 +35,7 @@ function Login({ onSwitchToRegister, onLoginSuccess }) {
       <div className="bg-circle circle-1"></div>
       <div className="bg-circle circle-2"></div>
       <div className="login-box">
-        <div className="logo">fb</div>
+        <img src={logo} alt="Logo" className="logo-img" />
         <h1>Hello Again!</h1>
         <p className="subtitle">Welcome Back</p>
         
