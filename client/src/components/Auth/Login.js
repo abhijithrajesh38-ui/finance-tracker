@@ -1,0 +1,84 @@
+import React, { useState } from 'react';
+import './Auth.css';
+
+function Login({ onSwitchToRegister, onLoginSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        onLoginSuccess(data.user);
+      } else {
+        alert(data.message || 'Login failed');
+      }
+    } catch (error) {
+      alert('Error connecting to server');
+      console.error(error);
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="bg-circle circle-1"></div>
+      <div className="bg-circle circle-2"></div>
+      <div className="login-box">
+        <div className="logo">fb</div>
+        <h1>Hello Again!</h1>
+        <p className="subtitle">Welcome Back</p>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <span className="input-icon">✉</span>
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <span className="input-icon">🔒</span>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="toggle-password"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              👁
+            </button>
+          </div>
+
+          <a href="#" className="forgot-password">Forgot Password?</a>
+
+          <button type="submit" className="login-btn">Login</button>
+        </form>
+
+        <p className="register-link">
+          Don't Have An Account? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToRegister(); }}>Register here</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default Login;
