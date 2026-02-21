@@ -52,3 +52,19 @@ export const getCategories = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// Delete transaction
+export const deleteTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const transaction = await Transaction.findByIdAndDelete(id);
+    
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    res.json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

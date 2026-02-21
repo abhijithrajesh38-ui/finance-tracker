@@ -7,6 +7,10 @@ function Transactions({ userId }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     if (userId) {
@@ -31,19 +35,92 @@ function Transactions({ userId }) {
     alert('Transaction added successfully!');
   };
 
+  const handleDeleteTransaction = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this transaction?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        alert('Transaction deleted successfully!');
+        fetchTransactions();
+      } else {
+        alert('Failed to delete transaction');
+      }
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      alert('Error deleting transaction');
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setStartDate('');
+    setEndDate('');
+  };
+
+  // Filter transactions
+  const filteredTransactions = transactions.filter(transaction => {
+    // Search filter
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Type filter
+    const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
+    
+    // Date filter
+    const transactionDate = new Date(transaction.date);
+    const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
+    const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
+    
+    // Time period filter (Week/Month/Year)
+    const now = new Date();
+    let matchesPeriod = true;
+    
+    if (filter === 'Week') {
+      // Current week (Sunday to Saturday)
+      const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - currentDay);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      matchesPeriod = transactionDate >= weekStart && transactionDate <= weekEnd;
+    } else if (filter === 'Month') {
+      // Current month (1st to last day of month)
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      matchesPeriod = transactionDate >= monthStart && 
+                     transactionDate.getMonth() === now.getMonth() &&
+                     transactionDate.getFullYear() === now.getFullYear();
+    } else if (filter === 'Year') {
+      // Current year (Jan 1 to Dec 31)
+      matchesPeriod = transactionDate.getFullYear() === now.getFullYear();
+    }
+    
+    return matchesSearch && matchesType && matchesStartDate && matchesEndDate && matchesPeriod;
+  });
+
   // Calculate totals
-  const totalIn = transactions
+  const totalIn = filteredTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
   
-  const totalOut = transactions
+  const totalOut = filteredTransactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
   
   const netSavings = totalIn - totalOut;
-  const totalCount = transactions.length;
-  const inCount = transactions.filter(t => t.type === 'income').length;
-  const outCount = transactions.filter(t => t.type === 'expense').length;
+  const totalCount = filteredTransactions.length;
+  const inCount = filteredTransactions.filter(t => t.type === 'income').length;
+  const outCount = filteredTransactions.filter(t => t.type === 'expense').length;
 
   const getIcon = (category) => {
     const icons = {
@@ -112,19 +189,39 @@ function Transactions({ userId }) {
       <div className="filters-bar">
         <div className="search-box">
           <span>🔍</span>
-          <input type="text" placeholder="Search" />
+          <input 
+            type="text" 
+            placeholder="Search" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        <select className="filter-select">
-          <option>Type</option>
-          <option>In</option>
-          <option>Out</option>
+        <select 
+          className="filter-select"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+        >
+          <option value="all">All Types</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
         </select>
-        <select className="filter-select">
-          <option>Date</option>
-        </select>
-        <select className="filter-select">
-          <option>Category</option>
-        </select>
+        <input 
+          type="date" 
+          className="filter-select"
+          placeholder="Start Date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+        <input 
+          type="date" 
+          className="filter-select"
+          placeholder="End Date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
+        <button className="clear-filters-btn" onClick={handleClearFilters}>
+          ✕ Clear
+        </button>
       </div>
 
       <div className="transactions-table">
@@ -134,14 +231,15 @@ function Transactions({ userId }) {
           <div className="col-date">DATE</div>
           <div className="col-category">CATEGORY</div>
           <div className="col-amount">AMOUNT</div>
+          <div className="col-actions">ACTIONS</div>
         </div>
 
-        {transactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-            No transactions yet. Click "Add Transactions" to get started.
+            No transactions found matching your filters.
           </div>
         ) : (
-          transactions.map(transaction => (
+          filteredTransactions.map(transaction => (
             <div key={transaction._id} className="table-row">
               <div className="col-merchant">
                 <div className="merchant-icon">{getIcon(transaction.category)}</div>
@@ -159,13 +257,22 @@ function Transactions({ userId }) {
               <div className={`col-amount ${transaction.type === 'income' ? 'amount-positive' : 'amount-negative'}`}>
                 {transaction.type === 'income' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString()}
               </div>
+              <div className="col-actions">
+                <button 
+                  className="delete-btn"
+                  onClick={() => handleDeleteTransaction(transaction._id)}
+                  title="Delete transaction"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           ))
         )}
       </div>
 
       <div className="pagination">
-        <span>Showing {transactions.length} of {transactions.length} transactions</span>
+        <span>Showing {filteredTransactions.length} of {transactions.length} transactions</span>
         <button className="page-btn">◀</button>
       </div>
     </div>

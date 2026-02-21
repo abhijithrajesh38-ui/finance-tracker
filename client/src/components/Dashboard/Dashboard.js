@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
+import Sidebar from '../Sidebar/Sidebar';
 import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
 
@@ -7,6 +8,9 @@ function Dashboard({ user }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [chartFilter, setChartFilter] = useState('Month');
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (user && user.id) {
@@ -26,17 +30,124 @@ function Dashboard({ user }) {
     }
   };
 
+  // Filter transactions based on chart filter
+  const getFilteredTransactions = () => {
+    const now = new Date();
+    
+    return transactions.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Time period filter
+      let matchesPeriod = true;
+      
+      if (chartFilter === 'Week') {
+        const currentDay = now.getDay();
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - currentDay);
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+        
+        matchesPeriod = transactionDate >= weekStart && transactionDate <= weekEnd;
+      } else if (chartFilter === 'Month') {
+        matchesPeriod = transactionDate.getMonth() === now.getMonth() &&
+               transactionDate.getFullYear() === now.getFullYear();
+      } else if (chartFilter === 'Year') {
+        matchesPeriod = transactionDate.getFullYear() === now.getFullYear();
+      }
+      
+      return matchesSearch && matchesPeriod;
+    });
+  };
+
+  const filteredTransactions = getFilteredTransactions();
+
   // Calculate totals
-  const totalIncome = transactions
+  const totalIncome = filteredTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
   
-  const totalExpenses = transactions
+  const totalExpenses = filteredTransactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
   
   const totalBalance = totalIncome - totalExpenses;
   const netSavings = totalIncome - totalExpenses;
+
+  // Calculate chart data based on filter
+  const getChartData = () => {
+    const now = new Date();
+    
+    if (chartFilter === 'Week') {
+      // Group by days of current week
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const currentDay = now.getDay();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - currentDay);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      return days.map((day, index) => {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(weekStart.getDate() + index);
+        dayDate.setHours(0, 0, 0, 0);
+        
+        const nextDay = new Date(dayDate);
+        nextDay.setDate(dayDate.getDate() + 1);
+        nextDay.setHours(0, 0, 0, 0);
+        
+        const dayTransactions = filteredTransactions.filter(t => {
+          const tDate = new Date(t.date);
+          return tDate >= dayDate && tDate < nextDay;
+        });
+        
+        const income = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expense = dayTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        
+        return { label: day, income, expense };
+      });
+    } else if (chartFilter === 'Month') {
+      // Group by weeks of current month
+      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+      
+      return weeks.map((week, index) => {
+        const weekTransactions = filteredTransactions.filter(t => {
+          const tDate = new Date(t.date);
+          const dayOfMonth = tDate.getDate();
+          return dayOfMonth >= (index * 7 + 1) && dayOfMonth <= ((index + 1) * 7);
+        });
+        
+        const income = weekTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expense = weekTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        
+        return { label: week, income, expense };
+      });
+    } else {
+      // Group by months of current year
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      return months.map((month, index) => {
+        const monthTransactions = filteredTransactions.filter(t => {
+          const tDate = new Date(t.date);
+          return tDate.getMonth() === index && tDate.getFullYear() === now.getFullYear();
+        });
+        
+        const income = monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expense = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        
+        return { label: month, income, expense };
+      });
+    }
+  };
+
+  const chartData = getChartData();
+  const maxAmount = Math.max(...chartData.map(d => Math.max(d.income, d.expense)), 1);
 
   const getIcon = (category) => {
     const icons = {
@@ -55,20 +166,7 @@ function Dashboard({ user }) {
   if (currentPage === 'transactions') {
     return (
       <div className="dashboard">
-        <aside className="sidebar">
-          <div className="logo">fb</div>
-          <nav>
-            <div className="nav-item" onClick={() => setCurrentPage('dashboard')}>
-              <span>📊</span> Dashboard
-            </div>
-            <div className="nav-item active">
-              <span>💸</span> Transactions
-            </div>
-            <div className="nav-item" onClick={() => setCurrentPage('budget')}>
-              <span>📈</span> Plan
-            </div>
-          </nav>
-        </aside>
+        <Sidebar currentPage="transactions" onNavigate={setCurrentPage} />
         <main className="main-content">
           <Transactions userId={user.id} />
         </main>
@@ -79,20 +177,7 @@ function Dashboard({ user }) {
   if (currentPage === 'budget') {
     return (
       <div className="dashboard">
-        <aside className="sidebar">
-          <div className="logo">fb</div>
-          <nav>
-            <div className="nav-item" onClick={() => setCurrentPage('dashboard')}>
-              <span>📊</span> Dashboard
-            </div>
-            <div className="nav-item" onClick={() => setCurrentPage('transactions')}>
-              <span>💸</span> Transactions
-            </div>
-            <div className="nav-item active">
-              <span>📈</span> Plan
-            </div>
-          </nav>
-        </aside>
+        <Sidebar currentPage="budget" onNavigate={setCurrentPage} />
         <main className="main-content">
           <Budget />
         </main>
@@ -102,24 +187,7 @@ function Dashboard({ user }) {
 
   return (
     <div className="dashboard">
-      <aside className="sidebar">
-        <div className="logo">fb</div>
-        <nav>
-          <div className="nav-item active">
-            <span>📊</span> Dashboard
-          </div>
-          <div className="nav-item" onClick={() => setCurrentPage('transactions')}>
-            <span>💸</span> Transactions
-          </div>
-          <div className="nav-item" onClick={() => setCurrentPage('budget')}>
-            <span>💼</span> Budget
-          </div>
-          <div className="nav-separator"></div>
-          <div className="nav-item">
-            <span>📈</span> Plan
-          </div>
-        </nav>
-      </aside>
+      <Sidebar currentPage="dashboard" onNavigate={setCurrentPage} />
 
       <main className="main-content">
         <header className="top-bar">
@@ -128,9 +196,29 @@ function Dashboard({ user }) {
             <h1>Good morning, <span className="username">{user.fullName}</span></h1>
           </div>
           <div className="header-actions">
-            <input type="text" placeholder="Search Insights..." className="search-box" />
+            <input 
+              type="text" 
+              placeholder="Search Insights..." 
+              className="search-box"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
             <button className="icon-btn">🔔</button>
-            <button className="icon-btn">👤</button>
+            <div className="account-menu-container">
+              <button className="icon-btn" onClick={() => setShowAccountMenu(!showAccountMenu)}>👤</button>
+              {showAccountMenu && (
+                <div className="account-dropdown">
+                  <div className="account-info">
+                    <div className="account-name">{user.fullName}</div>
+                    <div className="account-email">{user.email}</div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  <button className="dropdown-item" onClick={() => window.location.reload()}>
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -170,9 +258,9 @@ function Dashboard({ user }) {
                   <p className="section-subtitle">Monthly Income vs. Expenses comparison</p>
                 </div>
                 <div className="chart-filters">
-                  <button className="filter-btn">Week</button>
-                  <button className="filter-btn active">Month</button>
-                  <button className="filter-btn">Year</button>
+                  <button className={`filter-btn ${chartFilter === 'Week' ? 'active' : ''}`} onClick={() => setChartFilter('Week')}>Week</button>
+                  <button className={`filter-btn ${chartFilter === 'Month' ? 'active' : ''}`} onClick={() => setChartFilter('Month')}>Month</button>
+                  <button className={`filter-btn ${chartFilter === 'Year' ? 'active' : ''}`} onClick={() => setChartFilter('Year')}>Year</button>
                 </div>
               </div>
               <div className="chart-legend">
@@ -181,34 +269,15 @@ function Dashboard({ user }) {
               </div>
               <div className="chart-placeholder">
                 <div className="bar-chart">
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <div className="bar-group">
-                      <div className="bar income" style={{height: '280px'}}></div>
-                      <div className="bar expense" style={{height: '180px'}}></div>
+                  {chartData.map((data, index) => (
+                    <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                      <div className="bar-group">
+                        <div className="bar income" style={{height: `${(data.income / maxAmount) * 350}px`}}></div>
+                        <div className="bar expense" style={{height: `${(data.expense / maxAmount) * 350}px`}}></div>
+                      </div>
+                      <div className="bar-label">{data.label}</div>
                     </div>
-                    <div className="bar-label">WEEK 1</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <div className="bar-group">
-                      <div className="bar income" style={{height: '380px'}}></div>
-                      <div className="bar expense" style={{height: '280px'}}></div>
-                    </div>
-                    <div className="bar-label">WEEK 2</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <div className="bar-group">
-                      <div className="bar income" style={{height: '240px'}}></div>
-                      <div className="bar expense" style={{height: '320px'}}></div>
-                    </div>
-                    <div className="bar-label">WEEK 3</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <div className="bar-group">
-                      <div className="bar income" style={{height: '340px'}}></div>
-                      <div className="bar expense" style={{height: '260px'}}></div>
-                    </div>
-                    <div className="bar-label">WEEK 4</div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>

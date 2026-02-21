@@ -9,20 +9,21 @@
 .sidebar {
   width: 220px;
   background: #1a1a1a;
-  padding: 32px 24px;
+  padding: 32px 16px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 8px;
 }
 
 .sidebar .logo {
   font-size: 32px;
   font-weight: 300;
   color: #fff;
-  margin-bottom: 50px;
+  margin-bottom: 40px;
   display: flex;
   align-items: center;
   gap: 3px;
+  padding: 0 12px;
 }
 
 .sidebar .logo::after {
@@ -35,17 +36,19 @@
 
 .nav-item {
   width: 100%;
-  padding: 12px 16px;
-  color: #666;
+  padding: 14px 16px;
+  color: #999;
   text-align: left;
   cursor: pointer;
-  margin-bottom: 8px;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   transition: all 0.2s;
+  background: transparent;
+  border: none;
+  font-weight: 400;
 }
 
 .nav-item.active {
@@ -55,18 +58,22 @@
 
 .nav-item:hover {
   background: #252525;
-  color: #aaa;
+  color: #ccc;
 }
 
 .nav-item span {
-  font-size: 20px;
+  font-size: 18px;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .nav-separator {
   width: 100%;
   height: 1px;
   background: #2a2a2a;
-  margin: 20px 0;
+  margin: 16px 0;
 }
 
 .main-content {
@@ -121,6 +128,11 @@
   width: 250px;
   outline: none;
   font-size: 13px;
+  color: #333;
+}
+
+.search-box::placeholder {
+  color: #999;
 }
 
 .icon-btn {
@@ -131,6 +143,73 @@
   background: #fff;
   cursor: pointer;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  background: #f5f5f5;
+}
+
+.account-menu-container {
+  position: relative;
+}
+
+.account-dropdown {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 220px;
+  z-index: 1000;
+}
+
+.account-info {
+  padding: 16px;
+}
+
+.account-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.account-email {
+  font-size: 13px;
+  color: #666;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item:first-of-type {
+  border-radius: 0 0 12px 12px;
 }
 
 .stats-grid {
@@ -392,20 +471,21 @@
   flex: 1;
   display: flex;
   align-items: flex-end;
-  justify-content: center;
-  overflow: hidden;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 32px;
 }
 
 .bar-chart {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: flex-end;
-  width: 100%;
-  max-width: 700px;
+  width: auto;
+  min-width: 100%;
   height: 100%;
-  gap: 50px;
-  padding: 0 16px;
+  gap: 40px;
+  padding: 0 32px;
 }
 
 .bar-group {
