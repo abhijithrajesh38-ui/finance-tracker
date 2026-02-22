@@ -65,14 +65,34 @@ def build_insights(db, user_id: str, since: datetime) -> dict[str, Any]:
 
     insights: list[dict[str, Any]] = []
 
+    # Monthly Financial Health Summary - Always add this first
+    savings_rate = round((net / total_income) * 100, 1) if total_income > 0 else 0
+    
+    if net >= 0:
+        monthly_summary_text = f"You saved ₹{net:,.2f} this month."
+    else:
+        monthly_summary_text = f"You overspent by ₹{abs(net):,.2f} this month."
+    
+    if savings_rate > 0 and net >= 0:
+        monthly_summary_text += f" Savings rate is {savings_rate}%."
+    
+    insights.append(
+        {
+            "type": "monthly_summary",
+            "severity": "info",
+            "title": "Monthly Summary",
+            "text": monthly_summary_text,
+        }
+    )
+
     if top_categories:
         top = top_categories[0]
         insights.append(
             {
                 "type": "spending_analysis",
                 "severity": "info",
-                "title": "Top spending category",
-                "text": f"Your highest expense category is {top['category']} (₹{top['spent']:.2f}) in the selected period.",
+                "title": "Spending Analysis",
+                "text": f"Your highest spending category is {top['category']} (₹{top['spent']:,.2f}).",
             }
         )
 
@@ -83,57 +103,14 @@ def build_insights(db, user_id: str, since: datetime) -> dict[str, Any]:
         recs.append({"category": cat, "recommendedLimit": recommended, "basisSpent": round(spent, 2)})
 
     if recs:
+        top_rec = recs[0]
         insights.append(
             {
                 "type": "budget_recommendation",
                 "severity": "info",
-                "title": "Suggested budget limits",
-                "text": "I recommended next-period limits as ~10% above your recent spend for each category.",
+                "title": "Budget Recommendation",
+                "text": f"Based on your history, recommended {top_rec['category']} budget is ₹{top_rec['recommendedLimit']:,.2f} per month.",
                 "recommendations": recs[:5],
-            }
-        )
-
-    # Budget overrun alerts (based on current stored budgets + recomputed spent in that month)
-    budget_alerts = []
-    for b in budgets:
-        cat = str(b.get("category") or "Uncategorized")
-        limit = float(b.get("limit") or 0)
-        month = int(b.get("month") or 0)
-        year = int(b.get("year") or 0)
-        if not limit or not month or not year:
-            continue
-
-        start = datetime(year, month, 1)
-        end = datetime(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
-
-        spent = 0.0
-        for t in expenses:
-            dt = t.get("date")
-            if dt and start <= dt < end and str(t.get("category") or "Uncategorized") == cat:
-                spent += float(t.get("amount") or 0)
-
-        pct = (spent / limit) * 100 if limit > 0 else 0
-        if pct >= float(b.get("alertAt") or 80):
-            budget_alerts.append(
-                {
-                    "category": cat,
-                    "spent": round(spent, 2),
-                    "limit": round(limit, 2),
-                    "percentage": round(pct, 1),
-                    "month": month,
-                    "year": year,
-                }
-            )
-
-    if budget_alerts:
-        worst = sorted(budget_alerts, key=lambda x: x["percentage"], reverse=True)[0]
-        insights.append(
-            {
-                "type": "budget_alert",
-                "severity": "warning",
-                "title": "Budget alert",
-                "text": f"You are at {worst['percentage']}% of your {worst['category']} budget (₹{worst['spent']:.2f} / ₹{worst['limit']:.2f}).",
-                "alerts": budget_alerts,
             }
         )
 
@@ -161,12 +138,13 @@ def build_insights(db, user_id: str, since: datetime) -> dict[str, Any]:
 
     if anomalies:
         a = sorted(anomalies, key=lambda x: x["zScore"], reverse=True)[0]
+        date_str = a.get('date', '').strftime('%b %d') if hasattr(a.get('date'), 'strftime') else ''
         insights.append(
             {
                 "type": "anomaly",
                 "severity": "alert",
-                "title": "Unusual expense detected",
-                "text": f"Unusually large expense: {a['category']} ₹{a['amount']:.2f} (z={a['zScore']}).",
+                "title": "Unusual Activity",
+                "text": f"Unusual expense detected: ₹{a['amount']:,.2f} on {a['category']}{' on ' + date_str if date_str else ''}.",
                 "anomalies": anomalies[:10],
             }
         )

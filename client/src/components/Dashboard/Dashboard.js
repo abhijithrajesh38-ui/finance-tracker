@@ -413,45 +413,21 @@ function Dashboard({ user }) {
                   <div className="insight-text">No AI insights yet. Add more transactions and budgets to see analysis.</div>
                 </div>
               ) : (
-                aiInsights.slice(0, 5).map((item, index) => (
-                  <div key={index} className="insight-item">
-                    <div className="insight-header">
-                      <span className="insight-date">{String(item.severity || 'INFO').toUpperCase()}</span>
-                      <span className="insight-icon">
-                        {item.type === 'anomaly' ? '⚠️' : item.type === 'budget_alert' ? '⚠️' : item.type === 'budget_recommendation' ? '🎯' : '📊'}
-                      </span>
+                aiInsights
+                  .slice(0, 5)
+                  .sort((a, b) => {
+                    if (a.type === 'monthly_summary') return -1;
+                    if (b.type === 'monthly_summary') return 1;
+                    return 0;
+                  })
+                  .map((item, index) => (
+                    <div key={index} className="insight-item">
+                      <div className="insight-content">
+                        <div className="insight-title">{item.title || 'AI Insight'}</div>
+                        <div className="insight-description">{item.text}</div>
+                      </div>
                     </div>
-                    <div className="insight-text">
-                      <strong>
-                        {item.type === 'spending_analysis'
-                          ? 'Spending Analysis: '
-                          : item.type === 'budget_recommendation'
-                            ? 'Budget Recommendation: '
-                            : item.type === 'budget_alert'
-                              ? 'Budget Alert: '
-                              : item.type === 'anomaly'
-                                ? 'Anomaly Detection: '
-                                : 'Insight: '}
-                      </strong>
-                      {item.text || item.title}
-                      {item.type === 'budget_recommendation' && Array.isArray(item.recommendations) && item.recommendations.length > 0 && (
-                        <div className="insight-detail">
-                          Suggest: {item.recommendations[0].category} → ₹{Number(item.recommendations[0].recommendedLimit || 0).toLocaleString()}
-                        </div>
-                      )}
-                      {item.type === 'budget_alert' && Array.isArray(item.alerts) && item.alerts.length > 0 && (
-                        <div className="insight-detail">
-                          High: {item.alerts[0].category} ({item.alerts[0].percentage}%)
-                        </div>
-                      )}
-                      {item.type === 'anomaly' && Array.isArray(item.anomalies) && item.anomalies.length > 0 && (
-                        <div className="insight-detail">
-                          Unusual: {item.anomalies[0].category} ₹{Number(item.anomalies[0].amount || 0).toLocaleString()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </div>

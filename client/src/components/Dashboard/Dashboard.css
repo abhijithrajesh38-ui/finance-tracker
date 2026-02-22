@@ -626,16 +626,36 @@
 .insight-item {
   padding: 16px;
   border: 1px solid #e8e8e8;
-  border-radius: 24px;
+  border-radius: 16px;
   background: #fafafa;
-  min-height: 83px;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .insight-item:last-child {
   border: 1px solid #e8e8e8;
+}
+
+.insight-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.insight-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.insight-description {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+  font-weight: 400;
 }
 
 .insight-header {
