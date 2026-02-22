@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './Auth.css';
+import logo from '../../assets/images/Vector.svg';
+import { MdEmail, MdLock, MdVisibility, MdVisibilityOff, MdPerson } from 'react-icons/md';
 
 function Register({ onSwitchToLogin }) {
   const [fullName, setFullName] = useState('');
@@ -33,14 +35,16 @@ function Register({ onSwitchToLogin }) {
 
   return (
     <div className="login-container">
+      <div className="bg-circle circle-1"></div>
+      <div className="bg-circle circle-2"></div>
       <div className="login-box">
-        <div className="logo">fb</div>
+        <img src={logo} alt="Logo" className="logo-img" />
         <h1>Hello!</h1>
         <p className="subtitle">Sign Up to Get Started</p>
         
         <form onSubmit={handleSubmit}>
           <div className="input-group">
-            <span className="input-icon">👤</span>
+            <span className="input-icon"><MdPerson /></span>
             <input
               type="text"
               placeholder="Full Name"
@@ -51,7 +55,7 @@ function Register({ onSwitchToLogin }) {
           </div>
 
           <div className="input-group">
-            <span className="input-icon">✉</span>
+            <span className="input-icon"><MdEmail /></span>
             <input
               type="email"
               placeholder="Email Address"
@@ -62,7 +66,7 @@ function Register({ onSwitchToLogin }) {
           </div>
 
           <div className="input-group">
-            <span className="input-icon">🔒</span>
+            <span className="input-icon"><MdLock /></span>
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="Password"
@@ -75,7 +79,7 @@ function Register({ onSwitchToLogin }) {
               className="toggle-password"
               onClick={() => setShowPassword(!showPassword)}
             >
-              👁
+              {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
             </button>
           </div>
 
