@@ -6,7 +6,11 @@ function Budget({ userId }) {
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [editingBudget, setEditingBudget] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
   const [formData, setFormData] = useState({
     category: '',
     limit: '',
@@ -72,7 +76,16 @@ function Budget({ userId }) {
       
       if (response.ok) {
         setShowModal(false);
+        
+        // Only show success modal when editing
+        if (editingBudget) {
+          const categoryName = formData.category;
+          setSuccessMessage(`Your changes to "${categoryName}" have been saved successfully.`);
+          setShowSuccessModal(true);
+        }
+        
         setEditingBudget(null);
+        setHasChanges(false);
         setFormData({
           category: '',
           limit: '',
@@ -99,7 +112,41 @@ function Budget({ userId }) {
       year: budget.year,
       alertAt: budget.alertAt
     });
+    setHasChanges(false);
     setShowModal(true);
+  };
+
+  const handleFormChange = (field, value) => {
+    setFormData({...formData, [field]: value});
+    setHasChanges(true);
+  };
+
+  const handleCloseModal = () => {
+    if (editingBudget && hasChanges) {
+      setShowDiscardModal(true);
+    } else {
+      setShowModal(false);
+      setEditingBudget(null);
+      setHasChanges(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    setShowDiscardModal(false);
+    setShowModal(false);
+    setEditingBudget(null);
+    setHasChanges(false);
+    setFormData({
+      category: '',
+      limit: '',
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+      alertAt: 80
+    });
+  };
+
+  const handleContinueEditing = () => {
+    setShowDiscardModal(false);
   };
 
   const handleDelete = async (id) => {
@@ -225,11 +272,11 @@ function Budget({ userId }) {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingBudget ? 'Edit Budget' : 'Set Budget'}</h2>
-              <button className="close-btn" onClick={() => { setShowModal(false); setEditingBudget(null); }}>×</button>
+              <button className="close-btn" onClick={handleCloseModal}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -237,7 +284,7 @@ function Budget({ userId }) {
                 <input
                   type="text"
                   value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  onChange={(e) => handleFormChange('category', e.target.value)}
                   placeholder="e.g., Groceries"
                   required
                 />
@@ -247,7 +294,7 @@ function Budget({ userId }) {
                 <input
                   type="number"
                   value={formData.limit}
-                  onChange={(e) => setFormData({...formData, limit: e.target.value})}
+                  onChange={(e) => handleFormChange('limit', e.target.value)}
                   placeholder="500"
                   min="0"
                   required
@@ -258,7 +305,7 @@ function Budget({ userId }) {
                   <label>Month</label>
                   <select
                     value={formData.month}
-                    onChange={(e) => setFormData({...formData, month: parseInt(e.target.value)})}
+                    onChange={(e) => handleFormChange('month', parseInt(e.target.value))}
                   >
                     {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
                       <option key={i} value={i + 1}>{m}</option>
@@ -270,7 +317,7 @@ function Budget({ userId }) {
                   <input
                     type="number"
                     value={formData.year}
-                    onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
+                    onChange={(e) => handleFormChange('year', parseInt(e.target.value))}
                     min="2020"
                     max="2030"
                   />
@@ -281,13 +328,48 @@ function Budget({ userId }) {
                 <input
                   type="number"
                   value={formData.alertAt}
-                  onChange={(e) => setFormData({...formData, alertAt: parseInt(e.target.value)})}
+                  onChange={(e) => handleFormChange('alertAt', parseInt(e.target.value))}
                   min="0"
                   max="100"
                 />
               </div>
               <button type="submit" className="submit-btn">Save</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showSuccessModal && (
+        <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
+          <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Budget Updated</h2>
+            <div className="success-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
+                <path d="M25 40L35 50L55 30" stroke="#1a1a1a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="success-message">{successMessage}</p>
+            <button className="done-btn" onClick={() => setShowSuccessModal(false)}>Done</button>
+          </div>
+        </div>
+      )}
+
+      {showDiscardModal && (
+        <div className="modal-overlay" onClick={() => setShowDiscardModal(false)}>
+          <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Discard Changes?</h2>
+            <div className="warning-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
+                <text x="40" y="55" fontSize="48" fontWeight="bold" textAnchor="middle" fill="#1a1a1a">!</text>
+              </svg>
+            </div>
+            <p className="success-message">You have unsaved changes to this category. If you leave now, your updates will be lost.</p>
+            <div className="discard-buttons">
+              <button className="discard-btn" onClick={handleDiscard}>Discard</button>
+              <button className="continue-btn" onClick={handleContinueEditing}>Continue editing</button>
+            </div>
           </div>
         </div>
       )}

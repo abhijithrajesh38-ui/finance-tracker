@@ -12,6 +12,8 @@ function Transactions({ userId, onTransactionChange }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     if (userId) {
@@ -67,6 +69,7 @@ function Transactions({ userId, onTransactionChange }) {
     setTypeFilter('all');
     setStartDate('');
     setEndDate('');
+    setCurrentPage(0);
   };
 
   // Filter transactions
@@ -126,6 +129,24 @@ function Transactions({ userId, onTransactionChange }) {
   const totalCount = filteredTransactions.length;
   const inCount = filteredTransactions.filter(t => t.type === 'income').length;
   const outCount = filteredTransactions.filter(t => t.type === 'expense').length;
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   const getIcon = (category) => {
     const icons = {
@@ -235,6 +256,7 @@ function Transactions({ userId, onTransactionChange }) {
           <div className="col-type">IN/OUT</div>
           <div className="col-date">DATE</div>
           <div className="col-category">CATEGORY</div>
+          <div className="col-payment">PAYMENT</div>
           <div className="col-amount">AMOUNT</div>
           <div className="col-actions">ACTIONS</div>
         </div>
@@ -244,7 +266,7 @@ function Transactions({ userId, onTransactionChange }) {
             No transactions found matching your filters.
           </div>
         ) : (
-          filteredTransactions.map(transaction => (
+          paginatedTransactions.map(transaction => (
             <div key={transaction._id} className="table-row">
               <div className="col-merchant">
                 <div className="merchant-icon">{getIcon(transaction.category)}</div>
@@ -257,6 +279,11 @@ function Transactions({ userId, onTransactionChange }) {
               <div className="col-category">
                 <span className={`category-badge ${transaction.type === 'income' ? 'badge-green' : 'badge-red'}`}>
                   {transaction.category}
+                </span>
+              </div>
+              <div className="col-payment">
+                <span className="payment-badge">
+                  {transaction.paymentMethod ? transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1) : 'Cash'}
                 </span>
               </div>
               <div className={`col-amount ${transaction.type === 'income' ? 'amount-positive' : 'amount-negative'}`}>
@@ -277,8 +304,26 @@ function Transactions({ userId, onTransactionChange }) {
       </div>
 
       <div className="pagination">
-        <span>Showing {filteredTransactions.length} of {transactions.length} transactions</span>
-        <button className="page-btn">◀</button>
+        <span>
+          Showing {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
+        </span>
+        <div className="pagination-controls">
+          <button 
+            className="page-btn" 
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0}
+          >
+            ◀
+          </button>
+          <span className="page-info">Page {currentPage + 1} of {totalPages || 1}</span>
+          <button 
+            className="page-btn" 
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages - 1}
+          >
+            ▶
+          </button>
+        </div>
       </div>
     </div>
   );

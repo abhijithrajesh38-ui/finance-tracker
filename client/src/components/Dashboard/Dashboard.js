@@ -5,6 +5,7 @@ import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
 import Finn from '../Finn/Finn';
 import Report from '../Report/Report';
+import Compare from '../Compare/Compare';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
   MdNotifications, MdPerson, MdWarning, MdTv, MdRestaurant,
@@ -12,7 +13,7 @@ import {
   MdCreditCard, MdDelete
 } from 'react-icons/md';
 
-function Dashboard({ user }) {
+function Dashboard({ user, onLogout }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -248,6 +249,17 @@ function Dashboard({ user }) {
     );
   }
 
+  if (currentPage === 'compare') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="compare" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Compare userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
   if (currentPage === 'finn') {
     return (
       <div className="dashboard">
@@ -312,7 +324,7 @@ function Dashboard({ user }) {
                     <div className="account-email">{user.email}</div>
                   </div>
                   <div className="dropdown-divider"></div>
-                  <button className="dropdown-item" onClick={() => window.location.reload()}>
+                  <button className="dropdown-item" onClick={onLogout}>
                     🚪 Logout
                   </button>
                 </div>
