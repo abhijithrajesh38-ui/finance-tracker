@@ -118,6 +118,29 @@ export const getBudgetAlerts = async (req, res) => {
   }
 };
 
+// Update budget
+export const updateBudget = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category, limit, month, year, alertAt } = req.body;
+
+    const budget = await Budget.findByIdAndUpdate(
+      id,
+      { category, limit, month, year, alertAt },
+      { new: true }
+    );
+    
+    if (!budget) {
+      return res.status(404).json({ message: 'Budget not found' });
+    }
+    
+    res.json({ message: 'Budget updated successfully', budget });
+  } catch (error) {
+    console.error('Error updating budget:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Delete budget
 export const deleteBudget = async (req, res) => {
   try {

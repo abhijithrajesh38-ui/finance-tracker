@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './Dashboard.css';
 import Sidebar from '../Sidebar/Sidebar';
 import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
 import Finn from '../Finn/Finn';
+import Report from '../Report/Report';
+import { 
+  MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
+  MdNotifications, MdPerson, MdWarning, MdTv, MdRestaurant,
+  MdDirectionsCar, MdShoppingBag, MdDescription, MdLocalHospital,
+  MdCreditCard, MdDelete
+} from 'react-icons/md';
 
 function Dashboard({ user }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -196,16 +203,16 @@ function Dashboard({ user }) {
 
   const getIcon = (category) => {
     const icons = {
-      'Entertainment': '📺',
-      'Income': '💰',
-      'Salary': '💰',
-      'Food': '🍔',
-      'Transport': '🚗',
-      'Shopping': '🛍️',
-      'Bills': '📄',
-      'Health': '🏥'
+      'Entertainment': <MdTv />,
+      'Income': <MdAccountBalance />,
+      'Salary': <MdAccountBalance />,
+      'Food': <MdRestaurant />,
+      'Transport': <MdDirectionsCar />,
+      'Shopping': <MdShoppingBag />,
+      'Bills': <MdDescription />,
+      'Health': <MdLocalHospital />
     };
-    return icons[category] || '💳';
+    return icons[category] || <MdCreditCard />;
   };
 
   if (currentPage === 'transactions') {
@@ -225,6 +232,17 @@ function Dashboard({ user }) {
         <Sidebar currentPage="budget" onNavigate={setCurrentPage} />
         <main className="main-content">
           <Budget userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
+  if (currentPage === 'report') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="report" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Report userId={user.id} />
         </main>
       </div>
     );
@@ -259,7 +277,7 @@ function Dashboard({ user }) {
             />
             <div className="notification-container">
               <button className="icon-btn" onClick={handleNotificationClick}>
-                🔔
+                <MdNotifications />
                 {hasUnreadNotifications && budgetAlerts.length > 0 && (
                   <span className="notification-badge">{budgetAlerts.length}</span>
                 )}
@@ -272,7 +290,7 @@ function Dashboard({ user }) {
                   ) : (
                     budgetAlerts.map((alert, index) => (
                       <div key={index} className="notification-item">
-                        <div className="notification-title">⚠️ {alert.category}</div>
+                        <div className="notification-title"><MdWarning /> {alert.category}</div>
                         <div className="notification-text">
                           You've spent ₹{alert.spent.toLocaleString()} ({alert.percentage}%) of your ₹{alert.limit.toLocaleString()} budget
                         </div>
@@ -286,7 +304,7 @@ function Dashboard({ user }) {
               )}
             </div>
             <div className="account-menu-container">
-              <button className="icon-btn" onClick={() => setShowAccountMenu(!showAccountMenu)}>👤</button>
+              <button className="icon-btn" onClick={() => setShowAccountMenu(!showAccountMenu)}><MdPerson /></button>
               {showAccountMenu && (
                 <div className="account-dropdown">
                   <div className="account-info">
@@ -305,25 +323,25 @@ function Dashboard({ user }) {
 
         <div className="stats-grid">
           <div className="stat-card dark">
-            <div className="stat-icon">💰</div>
+            <div className="stat-icon"><MdAccountBalance /></div>
             <div className="stat-label">Total Balance</div>
             <div className="stat-value">₹{totalBalance.toLocaleString()}</div>
             <div className="stat-change positive">Current balance</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon">⬇️</div>
+            <div className="stat-icon"><MdTrendingDown /></div>
             <div className="stat-label">Total Income</div>
             <div className="stat-value">₹{totalIncome.toLocaleString()}</div>
             <div className="stat-change positive">{transactions.filter(t => t.type === 'income').length} transactions</div>
           </div>
           <div className="stat-card beige">
-            <div className="stat-icon">⬆️</div>
+            <div className="stat-icon"><MdTrendingUp /></div>
             <div className="stat-label">Total Expenses</div>
             <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
             <div className="stat-change negative">{transactions.filter(t => t.type === 'expense').length} transactions</div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon">🐷</div>
+            <div className="stat-icon"><MdSavings /></div>
             <div className="stat-label">Net Savings</div>
             <div className="stat-value">₹{netSavings.toLocaleString()}</div>
             <div className="stat-change positive">{totalIncome > 0 ? `${((netSavings/totalIncome)*100).toFixed(1)}%` : '0%'} savings rate</div>

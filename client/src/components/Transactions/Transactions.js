@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './Transactions.css';
 import AddTransactionModal from './AddTransactionModal';
+import { MdTv, MdRestaurant, MdDirectionsCar, MdShoppingBag, MdDescription, MdLocalHospital, MdCreditCard, MdAccountBalance, MdDelete } from 'react-icons/md';
 
 function Transactions({ userId, onTransactionChange }) {
   const [filter, setFilter] = useState('Month');
@@ -128,16 +129,16 @@ function Transactions({ userId, onTransactionChange }) {
 
   const getIcon = (category) => {
     const icons = {
-      'Entertainment': '📺',
-      'Income': '💰',
-      'Salary': '💰',
-      'Food': '🍔',
-      'Transport': '🚗',
-      'Shopping': '🛍️',
-      'Bills': '📄',
-      'Health': '🏥'
+      'Entertainment': <MdTv />,
+      'Income': <MdAccountBalance />,
+      'Salary': <MdAccountBalance />,
+      'Food': <MdRestaurant />,
+      'Transport': <MdDirectionsCar />,
+      'Shopping': <MdShoppingBag />,
+      'Bills': <MdDescription />,
+      'Health': <MdLocalHospital />
     };
-    return icons[category] || '💳';
+    return icons[category] || <MdCreditCard />;
   };
 
   if (loading) {
@@ -267,7 +268,7 @@ function Transactions({ userId, onTransactionChange }) {
                   onClick={() => handleDeleteTransaction(transaction._id)}
                   title="Delete transaction"
                 >
-                  🗑️
+                  <MdDelete />
                 </button>
               </div>
             </div>

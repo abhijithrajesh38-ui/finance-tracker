@@ -25,14 +25,14 @@
 .circle-1 {
   width: 461px;
   height: 461px;
-  top: 641px;
+  top: 441px;
   left: -119px;
 }
 
 .circle-2 {
   width: 742px;
   height: 742px;
-  top: 411px;
+  top: 200px;
   left: 165px;
 }
 
@@ -41,20 +41,27 @@
   padding: 40px;
   width: 100%;
   max-width: 420px;
-  text-align: center;
+  text-align: left;
   position: relative;
   z-index: 1;
+}
+
+.logo-img {
+  width: 80px;
+  height: auto;
+  margin-bottom: -20px;
+  display: block;
 }
 
 .logo {
   font-size: 64px;
   font-weight: 300;
   color: #fff;
-  margin-bottom: 30px;
+  margin-bottom: -10px;
   letter-spacing: -2px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 5px;
 }
 
@@ -70,14 +77,17 @@ h1 {
   color: #fff;
   font-size: 36px;
   font-weight: 400;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
+  padding-top: 20px;
   font-style: italic;
+  text-align: left;
 }
 
 .subtitle {
-  color: #888;
-  margin-bottom: 40px;
+  color: #fff;
+  margin-bottom: 30px;
   font-size: 15px;
+  text-align: left;
 }
 
 form {
@@ -102,8 +112,8 @@ form {
 input {
   width: 100%;
   padding: 15px 20px 15px 45px;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 30px;
   color: #fff;
   font-size: 14px;
@@ -112,7 +122,17 @@ input {
 }
 
 input:focus {
-  border-color: #555;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Remove autofill background */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0px 1000px transparent inset;
+  transition: background-color 5000s ease-in-out 0s;
+  background-color: transparent !important;
 }
 
 input::placeholder {
