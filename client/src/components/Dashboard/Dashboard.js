@@ -5,6 +5,7 @@ import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
 import Finn from '../Finn/Finn';
 import Report from '../Report/Report';
+import Compare from '../Compare/Compare';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
   MdNotifications, MdPerson, MdWarning, MdTv, MdRestaurant,
@@ -243,6 +244,17 @@ function Dashboard({ user, onLogout }) {
         <Sidebar currentPage="report" onNavigate={setCurrentPage} />
         <main className="main-content" style={{ padding: 0 }}>
           <Report userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
+  if (currentPage === 'compare') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="compare" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Compare userId={user.id} />
         </main>
       </div>
     );

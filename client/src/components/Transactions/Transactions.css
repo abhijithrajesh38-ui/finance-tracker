@@ -58,19 +58,39 @@
 .summary-card {
   padding: 25px;
   border-radius: 20px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.summary-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .summary-card.green {
   background: #d4f4dd;
 }
 
+.summary-card.green:hover {
+  background: #c5eacd;
+}
+
 .summary-card.red {
   background: #ffd4d4;
+}
+
+.summary-card.red:hover {
+  background: #ffc5c5;
 }
 
 .summary-card.white {
   background: #fff;
   border: 1px solid #e0e0e0;
+}
+
+.summary-card.white:hover {
+  background: #f9f9f9;
+  border-color: #ccc;
 }
 
 .summary-label {
@@ -178,21 +198,23 @@
 }
 
 .table-header {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 0.5fr;
+  display: grid !important;
+  grid-template-columns: 2fr 1fr 1fr 1fr 0.7fr 1fr 1fr !important;
   padding: 15px 20px;
   font-size: 11px;
   color: #999;
   font-weight: 600;
   border-bottom: 1px solid #f0f0f0;
+  gap: 15px;
 }
 
 .table-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 0.5fr;
+  display: grid !important;
+  grid-template-columns: 2fr 1fr 1fr 1fr 0.7fr 1fr 1fr !important;
   padding: 20px;
   align-items: center;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 2px solid #e0e0e0;
+  gap: 15px;
 }
 
 .col-merchant {
@@ -246,6 +268,17 @@
   color: #c62828;
 }
 
+.payment-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 11px;
+  background: #e8e8e8;
+  color: #1a1a1a;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .col-amount {
   font-weight: 600;
   text-align: right;
@@ -268,6 +301,18 @@
   color: #666;
 }
 
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-info {
+  font-weight: 500;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+
 .page-btn {
   width: 35px;
   height: 35px;
@@ -275,6 +320,20 @@
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #1a1a1a;
+  color: white;
+  border-color: #1a1a1a;
+}
+
+.page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: #f5f5f5;
 }
 
 .col-actions {
@@ -284,19 +343,22 @@
 }
 
 .delete-btn {
-  background: none;
+  background: #ffd4d4;
   border: none;
   cursor: pointer;
-  font-size: 18px;
-  padding: 8px;
-  border-radius: 8px;
-  transition: all 0.2s;
+  font-size: 16px;
+  min-width: 80px;
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 50px;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #d32f2f;
 }
 
 .delete-btn:hover {
-  background: #fee;
-  transform: scale(1.1);
+  background: #ffc5c5;
+  transform: translateY(-2px);
 }

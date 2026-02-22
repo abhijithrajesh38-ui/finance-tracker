@@ -229,6 +229,15 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 2px solid #e8e8e8;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  border-color: #d0d0d0;
 }
 
 .stat-card.dark {
@@ -236,8 +245,17 @@
   color: #fff;
 }
 
+.stat-card.dark:hover {
+  background: #2d2d2d;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
 .stat-card.beige {
   background: #e8e4d9;
+}
+
+.stat-card.beige:hover {
+  background: #ded9cc;
 }
 
 .stat-icon {
@@ -748,10 +766,28 @@
   gap: 24px;
 }
 
-.budgeting-section, .savings-section {
+.budgeting-section {
   background: #fff;
   padding: 32px;
   border-radius: 24px;
+  width: 520px;
+  height: 293px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border: 1px solid #e0e0e0;
+}
+
+.savings-section {
+  background: #fff;
+  padding: 32px;
+  border-radius: 24px;
+  width: 520px;
+  height: 293px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border: 1px solid #e0e0e0;
 }
 
 .notification-container {

@@ -48,22 +48,46 @@
   padding: 25px;
   border-radius: 20px;
   border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.summary-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  border-color: #ccc;
 }
 
 .income-card {
   background: #d4f4dd;
 }
 
+.income-card:hover {
+  background: #c5eacd;
+}
+
 .expense-card {
   background: #ffd4d4;
+}
+
+.expense-card:hover {
+  background: #ffc5c5;
 }
 
 .savings-card {
   background: #fff;
 }
 
+.savings-card:hover {
+  background: #f9f9f9;
+}
+
 .category-card {
   background: #fff;
+}
+
+.category-card:hover {
+  background: #f9f9f9;
 }
 
 .card-label {
