@@ -1,0 +1,6 @@
+fastapi==0.115.8
+uvicorn[standard]==0.30.6
+pymongo[srv]==4.8.0
+python-dotenv==1.0.1
+pydantic==2.10.6
+google-generativeai==0.8.4

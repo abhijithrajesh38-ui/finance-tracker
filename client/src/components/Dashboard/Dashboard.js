@@ -17,6 +17,8 @@ function Dashboard({ user, onLogout }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiInsights, setAiInsights] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
   const [chartFilter, setChartFilter] = useState('Month');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,8 +34,23 @@ function Dashboard({ user, onLogout }) {
       fetchTransactions();
       fetchBudgetAlerts();
       fetchBudgets();
+      fetchAiInsights();
     }
   }, [user]);
+
+  const fetchAiInsights = async () => {
+    try {
+      setAiLoading(true);
+      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`);
+      const data = await response.json();
+      setAiInsights(Array.isArray(data.insights) ? data.insights : []);
+    } catch (error) {
+      console.error('Error fetching AI insights:', error);
+      setAiInsights([]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -399,41 +416,31 @@ function Dashboard({ user, onLogout }) {
               <div className="section-header">
                 <h2>AI Insights</h2>
               </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">OPTIMIZED</span>
-                  <span className="insight-icon">🔗</span>
+              {aiLoading ? (
+                <div className="insight-item">
+                  <div className="insight-text">Loading insights...</div>
                 </div>
-                <div className="insight-text">Subscription optimization: Cancel unused 'Adobe Creative' to save $52/mo.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">ALERT</span>
-                  <span className="insight-icon">⚠️</span>
+              ) : aiInsights.length === 0 ? (
+                <div className="insight-item">
+                  <div className="insight-text">No AI insights yet. Add more transactions and budgets to see analysis.</div>
                 </div>
-                <div className="insight-text">Tax deadline approaching in 14 days. Prepare your W2 forms.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">MARKET</span>
-                  <span className="insight-icon">📈</span>
-                </div>
-                <div className="insight-text">New ETF opportunity matches your risk profile. 6.2% expected yield.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">UTILITY</span>
-                  <span className="insight-icon">💡</span>
-                </div>
-                <div className="insight-text">Energy bill is 19% higher than local average. Review peak usage.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">SAVINGS</span>
-                  <span className="insight-icon">🎯</span>
-                </div>
-                <div className="insight-text">You reached your milestone for 'Vacation Fund'. Book now for best rates.</div>
-              </div>
+              ) : (
+                aiInsights
+                  .slice(0, 5)
+                  .sort((a, b) => {
+                    if (a.type === 'monthly_summary') return -1;
+                    if (b.type === 'monthly_summary') return 1;
+                    return 0;
+                  })
+                  .map((item, index) => (
+                    <div key={index} className="insight-item">
+                      <div className="insight-content">
+                        <div className="insight-title">{item.title || 'AI Insight'}</div>
+                        <div className="insight-description">{item.text}</div>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         </div>
