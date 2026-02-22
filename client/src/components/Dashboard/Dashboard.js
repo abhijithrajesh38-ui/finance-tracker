@@ -12,7 +12,7 @@ import {
   MdCreditCard, MdDelete
 } from 'react-icons/md';
 
-function Dashboard({ user }) {
+function Dashboard({ user, onLogout }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -312,7 +312,7 @@ function Dashboard({ user }) {
                     <div className="account-email">{user.email}</div>
                   </div>
                   <div className="dropdown-divider"></div>
-                  <button className="dropdown-item" onClick={() => window.location.reload()}>
+                  <button className="dropdown-item" onClick={onLogout}>
                     🚪 Logout
                   </button>
                 </div>
