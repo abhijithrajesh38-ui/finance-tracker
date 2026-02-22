@@ -27,24 +27,26 @@ function Finn({ userId }) {
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
-      const aiResponse = generateResponse(text);
-      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
-      setIsTyping(false);
-    }, 1000);
-  };
+    try {
+      const response = await fetch('http://localhost:5000/api/ai/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, question: text })
+      });
 
-  const generateResponse = (question) => {
-    // Mock responses based on question
-    if (question.toLowerCase().includes('overspending')) {
-      return "Great question! Let me break it down for you:\n\nENTERTAINMENT - $78 OVER BUDGET\nYOU BUDGETED $250 BUT SPENT $328 (131%) - MAIN CULPRITS";
-    } else if (question.toLowerCase().includes('summary')) {
-      return "Here's your spending summary for this month:\n\nTotal Income: ₹145,800\nTotal Expenses: ₹85,000\nNet Savings: ₹60,800\n\nYou're doing great! Your savings rate is 41.8%";
-    } else if (question.toLowerCase().includes('budget')) {
-      return "Your budget status:\n\n✅ Groceries: 65% used (₹325/₹500)\n⚠️ Entertainment: 128% over budget\n✅ Transport: 45% used\n\nYou're over budget in Entertainment category.";
+      const data = await response.json();
+
+      const aiResponse = response.ok
+        ? (data.answer || 'No answer returned.')
+        : (data.message || data.detail || 'AI request failed.');
+
+      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to AI service.' }]);
+      console.error(error);
+    } finally {
+      setIsTyping(false);
     }
-    return "I'm Finn, your AI financial assistant. I can help you track spending, analyze budgets, and provide financial insights. What would you like to know?";
   };
 
   const handleKeyPress = (e) => {

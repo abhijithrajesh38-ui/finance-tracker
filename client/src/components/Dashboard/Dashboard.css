@@ -669,6 +669,13 @@
   font-weight: 400;
 }
 
+.insight-detail {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
 .budget-item {
   margin-bottom: 25px;
 }

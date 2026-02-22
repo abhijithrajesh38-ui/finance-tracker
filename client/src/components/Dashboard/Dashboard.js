@@ -16,6 +16,8 @@ function Dashboard({ user }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiInsights, setAiInsights] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
   const [chartFilter, setChartFilter] = useState('Month');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,8 +33,23 @@ function Dashboard({ user }) {
       fetchTransactions();
       fetchBudgetAlerts();
       fetchBudgets();
+      fetchAiInsights();
     }
   }, [user]);
+
+  const fetchAiInsights = async () => {
+    try {
+      setAiLoading(true);
+      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`);
+      const data = await response.json();
+      setAiInsights(Array.isArray(data.insights) ? data.insights : []);
+    } catch (error) {
+      console.error('Error fetching AI insights:', error);
+      setAiInsights([]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -387,41 +404,55 @@ function Dashboard({ user }) {
               <div className="section-header">
                 <h2>AI Insights</h2>
               </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">OPTIMIZED</span>
-                  <span className="insight-icon">🔗</span>
+              {aiLoading ? (
+                <div className="insight-item">
+                  <div className="insight-text">Loading insights...</div>
                 </div>
-                <div className="insight-text">Subscription optimization: Cancel unused 'Adobe Creative' to save $52/mo.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">ALERT</span>
-                  <span className="insight-icon">⚠️</span>
+              ) : aiInsights.length === 0 ? (
+                <div className="insight-item">
+                  <div className="insight-text">No AI insights yet. Add more transactions and budgets to see analysis.</div>
                 </div>
-                <div className="insight-text">Tax deadline approaching in 14 days. Prepare your W2 forms.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">MARKET</span>
-                  <span className="insight-icon">📈</span>
-                </div>
-                <div className="insight-text">New ETF opportunity matches your risk profile. 6.2% expected yield.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">UTILITY</span>
-                  <span className="insight-icon">💡</span>
-                </div>
-                <div className="insight-text">Energy bill is 19% higher than local average. Review peak usage.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">SAVINGS</span>
-                  <span className="insight-icon">🎯</span>
-                </div>
-                <div className="insight-text">You reached your milestone for 'Vacation Fund'. Book now for best rates.</div>
-              </div>
+              ) : (
+                aiInsights.slice(0, 5).map((item, index) => (
+                  <div key={index} className="insight-item">
+                    <div className="insight-header">
+                      <span className="insight-date">{String(item.severity || 'INFO').toUpperCase()}</span>
+                      <span className="insight-icon">
+                        {item.type === 'anomaly' ? '⚠️' : item.type === 'budget_alert' ? '⚠️' : item.type === 'budget_recommendation' ? '🎯' : '📊'}
+                      </span>
+                    </div>
+                    <div className="insight-text">
+                      <strong>
+                        {item.type === 'spending_analysis'
+                          ? 'Spending Analysis: '
+                          : item.type === 'budget_recommendation'
+                            ? 'Budget Recommendation: '
+                            : item.type === 'budget_alert'
+                              ? 'Budget Alert: '
+                              : item.type === 'anomaly'
+                                ? 'Anomaly Detection: '
+                                : 'Insight: '}
+                      </strong>
+                      {item.text || item.title}
+                      {item.type === 'budget_recommendation' && Array.isArray(item.recommendations) && item.recommendations.length > 0 && (
+                        <div className="insight-detail">
+                          Suggest: {item.recommendations[0].category} → ₹{Number(item.recommendations[0].recommendedLimit || 0).toLocaleString()}
+                        </div>
+                      )}
+                      {item.type === 'budget_alert' && Array.isArray(item.alerts) && item.alerts.length > 0 && (
+                        <div className="insight-detail">
+                          High: {item.alerts[0].category} ({item.alerts[0].percentage}%)
+                        </div>
+                      )}
+                      {item.type === 'anomaly' && Array.isArray(item.anomalies) && item.anomalies.length > 0 && (
+                        <div className="insight-detail">
+                          Unusual: {item.anomalies[0].category} ₹{Number(item.anomalies[0].amount || 0).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
