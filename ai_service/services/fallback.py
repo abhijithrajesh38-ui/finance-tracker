@@ -20,6 +20,8 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
     expense_by_week = summary.get("expenseByWeek", {})
     income_by_week = summary.get("incomeByWeek", {})
     reference_date = summary.get("referenceDate")
+    last_month_key = summary.get("lastMonthKey")
+    this_month_key = summary.get("thisMonthKey")
 
     # Extract last mentioned month from conversation history for follow-ups
     last_month = None
@@ -65,6 +67,35 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
             except Exception:
                 pass
         return datetime.utcnow().date()
+
+    # Handle last month / this month financial status/summary
+    if ("last month" in q or "previous month" in q or "this month" in q) and (
+        "status" in q or "summary" in q or "financial" in q
+    ):
+        from datetime import datetime
+
+        target_month = None
+        if "this month" in q:
+            target_month = this_month_key
+        else:
+            target_month = last_month_key
+
+        if not target_month:
+            return "I could not find this information in your financial records."
+
+        exp = float((summary.get("expenseByMonth", {}) or {}).get(target_month, 0) or 0)
+        inc = float((summary.get("incomeByMonth", {}) or {}).get(target_month, 0) or 0)
+        net = inc - exp
+        try:
+            dt = datetime.strptime(target_month, "%Y-%m")
+            month_display = dt.strftime("%B %Y")
+        except Exception:
+            month_display = target_month
+
+        return (
+            f"Financial status for {month_display}: "
+            f"Income {fmt_money(inc)}, Expenses {fmt_money(exp)}, Net {fmt_money(net)}."
+        )
 
     # Handle day/week specific questions
     if ("week" in q or "day" in q or "today" in q or "yesterday" in q or "last" in q) and (
