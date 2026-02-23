@@ -246,23 +246,61 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
                 return f"Your most unusual spending was {fmt_money(a.get('amount', 0))} on {a.get('category', 'Unknown')}{desc}. Description: {a.get('description', 'N/A')}."
         return "No unusual spending patterns detected in your transactions."
 
+    # Handle "how can I improve savings" type questions
+    # This must be checked BEFORE month-ranking savings queries.
+    if ("save" in q or "saving" in q or "savings" in q) and (
+        "better" in q or "improve" in q or "increase" in q or "reduce" in q or "what do i need" in q
+    ):
+        if not all_cats:
+            return "I could not find this information in your financial records."
+
+        top1 = all_cats[0]
+        top2 = all_cats[1] if len(all_cats) > 1 else None
+        top3 = all_cats[2] if len(all_cats) > 2 else None
+
+        lines = [
+            "To improve savings, focus on reducing your biggest expense categories:",
+            f"1) {top1['category']}: {fmt_money(top1['spent'])}",
+        ]
+        if top2:
+            lines.append(f"2) {top2['category']}: {fmt_money(top2['spent'])}")
+        if top3:
+            lines.append(f"3) {top3['category']}: {fmt_money(top3['spent'])}")
+
+        # Simple, data-backed targets
+        try:
+            cut1 = float(top1.get("spent") or 0) * 0.10
+        except Exception:
+            cut1 = 0
+        if cut1 > 0:
+            lines.append(f"If you cut {top1['category']} by 10%, you could save about {fmt_money(cut1)} more in the same period.")
+
+        return "\n".join(lines)
+
     # Handle "which month had most savings" (check BEFORE generic savings handler)
-    if ("month" in q or "when" in q) and ("save" in q or "saving" in q or "savings" in q):
-        top_savings_months = summary.get("topSavingsMonths", [])
-        if top_savings_months:
-            top = top_savings_months[0]
-            month_name = top.get("month", "")
-            savings = top.get("savings", 0)
-            try:
-                from datetime import datetime
-                dt = datetime.strptime(month_name, "%Y-%m")
-                month_display = dt.strftime("%B %Y")
-            except Exception:
-                month_display = month_name
-            if savings >= 0:
-                return f"You saved the most in {month_display}: {fmt_money(savings)}."
-            else:
-                return f"In {month_display}, you had the lowest deficit: {fmt_money(abs(savings))} (you spent more than earned)."
+    # Only trigger this if the user is explicitly asking for a month ranking.
+    if ("month" in q or "months" in q or "when" in q) and ("save" in q or "saving" in q or "savings" in q):
+        import re
+
+        wants_ranking = re.search(r"\b(which|most|highest|max)\b", q) is not None
+        wants_improvement = re.search(r"\b(better|improve|increase|reduce)\b", q) is not None
+
+        if wants_ranking and not wants_improvement:
+            top_savings_months = summary.get("topSavingsMonths", [])
+            if top_savings_months:
+                top = top_savings_months[0]
+                month_name = top.get("month", "")
+                savings = top.get("savings", 0)
+                try:
+                    from datetime import datetime
+                    dt = datetime.strptime(month_name, "%Y-%m")
+                    month_display = dt.strftime("%B %Y")
+                except Exception:
+                    month_display = month_name
+                if savings >= 0:
+                    return f"You saved the most in {month_display}: {fmt_money(savings)}."
+                else:
+                    return f"In {month_display}, you had the lowest deficit: {fmt_money(abs(savings))} (you spent more than earned)."
 
     if "saving" in q or "savings" in q or "save" in q:
         if not top:

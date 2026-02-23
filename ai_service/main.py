@@ -21,6 +21,61 @@ app = FastAPI(title="Finance Tracker AI Service", version="1.0.0")
 # Simple in-memory conversation history (userId -> list of Q&A pairs)
 conversation_history: dict[str, list[dict[str, str]]] = {}
 
+
+def _is_finance_tracker_question(question: str) -> bool:
+    q = (question or "").strip().lower()
+    if not q:
+        return False
+
+    finance_keywords = {
+        "transaction",
+        "transactions",
+        "income",
+        "expense",
+        "expenses",
+        "spent",
+        "spend",
+        "saving",
+        "savings",
+        "save",
+        "budget",
+        "budgets",
+        "category",
+        "categories",
+        "month",
+        "year",
+        "average",
+        "avg",
+        "total",
+        "net",
+        "balance",
+        "cash",
+        "card",
+        "bank",
+        "rent",
+    }
+
+    # Quick reject for clearly unrelated topics.
+    unrelated_keywords = {
+        "president",
+        "prime minister",
+        "cricket",
+        "football",
+        "movie",
+        "actor",
+        "actress",
+        "country",
+        "capital",
+        "weather",
+        "recipe",
+        "song",
+    }
+
+    if any(k in q for k in unrelated_keywords):
+        return False
+
+    return any(k in q for k in finance_keywords)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -57,6 +112,11 @@ def insights(userId: str, days: int = 90) -> dict[str, Any]:
 
 @app.post("/query")
 def query(body: QueryRequest) -> dict[str, Any]:
+    if not _is_finance_tracker_question(body.question):
+        return {
+            "answer": "I can only answer questions about your finance tracker data (income, expenses, transactions, budgets, savings)."
+        }
+
     db = get_db()
     # Load ALL user data (no time limit) for comprehensive answers
     context = build_insights(db=db, user_id=body.userId, since=None, load_all=True)
