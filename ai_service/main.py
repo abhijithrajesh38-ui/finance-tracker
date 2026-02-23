@@ -50,6 +50,7 @@ def _is_finance_tracker_question(question: str) -> bool:
         "transaction", "transactions", "income", "expense", "expenses",
         "spent", "spend", "spending", "saving", "savings", "save", "saved",
         "budget", "budgets", "budgeting", "category", "categories",
+        "month", "monthly", "week", "weekly", "day", "daily", "today", "yesterday",
         "month", "monthly", "year", "yearly", "average", "avg", "total",
         "net", "balance", "cash", "card", "bank", "rent", "salary",
         "payment", "paid", "cost", "costs", "money", "financial",
