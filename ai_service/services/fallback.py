@@ -3,13 +3,25 @@ from __future__ import annotations
 from typing import Any
 
 
-def build_fallback_answer(question: str, insights: dict[str, Any]) -> str:
+def build_fallback_answer(question: str, insights: dict[str, Any], conversation_history: str = "") -> str:
     q = (question or "").strip().lower()
 
     summary = insights.get("summary", {})
     top = summary.get("topCategories", [])
     top_months = summary.get("topMonths", [])
     category_by_month = summary.get("categoryByMonth", {})
+    all_cats = summary.get("allCategories", [])
+
+    # Extract last mentioned month from conversation history for follow-ups
+    last_month = None
+    if "December 2025" in conversation_history:
+        last_month = "2025-12"
+    elif "November 2025" in conversation_history:
+        last_month = "2025-11"
+    elif "January 2026" in conversation_history:
+        last_month = "2026-01"
+    elif "February 2026" in conversation_history:
+        last_month = "2026-02"
 
     budget_alert_item = next((i for i in insights.get("insights", []) if i.get("type") == "budget_alert"), None)
     anomaly_item = next((i for i in insights.get("insights", []) if i.get("type") == "anomaly"), None)
@@ -44,14 +56,48 @@ def build_fallback_answer(question: str, insights: dict[str, Any]) -> str:
         
         return None
 
-    # Handle category-specific queries for a particular month
-    if ("category" in q or "categories" in q or "spent" in q or "spending" in q) and ("in" in q or "during" in q or "for" in q):
+    # Handle FOLLOW-UP questions using conversation history context
+    # If user asks about "that", "it", or short questions after a month was mentioned
+    if last_month and len(q.split()) <= 5:
+        # Follow-up about category in the last mentioned month
+        if "category" in q or "what was" in q:
+            if last_month in category_by_month:
+                cats = category_by_month[last_month]
+                if cats:
+                    top_cat = cats[0]
+                    try:
+                        from datetime import datetime
+                        dt = datetime.strptime(last_month, "%Y-%m")
+                        month_display = dt.strftime("%B %Y")
+                    except Exception:
+                        month_display = last_month
+                    return f"In {month_display}, your highest spending category was {top_cat['category']} with {fmt_money(top_cat['spent'])}."
+        
+        # Follow-up about total spending in the last mentioned month
+        if "how much" in q or "total" in q or "amount" in q:
+            for tm in top_months:
+                if tm.get("month") == last_month:
+                    try:
+                        from datetime import datetime
+                        dt = datetime.strptime(last_month, "%Y-%m")
+                        month_display = dt.strftime("%B %Y")
+                    except Exception:
+                        month_display = last_month
+                    return f"Your total spending in {month_display} was {fmt_money(tm.get('spent', 0))}."
+
+    # Handle category queries with "overall" or "all months" 
+    if ("category" in q and ("overall" in q or "all" in q or "total" in q or "most" in q)):
+        if all_cats:
+            top_cat = all_cats[0]
+            return f"Overall, your highest spending category is {top_cat['category']} with {fmt_money(top_cat['spent'])}."
+
+    # Handle category-specific queries for a particular month (explicit mention)
+    if ("category" in q or "categories" in q) and ("in" in q or "during" in q or "for" in q):
         target_month = extract_month_from_question(q)
         if target_month and target_month in category_by_month:
             cats = category_by_month[target_month]
             if cats:
                 top_cat = cats[0]
-                # Convert YYYY-MM to readable format
                 try:
                     from datetime import datetime
                     dt = datetime.strptime(target_month, "%Y-%m")
@@ -178,6 +224,27 @@ def build_fallback_answer(question: str, insights: dict[str, Any]) -> str:
 
         lines.append("If you want, tell me the month you want to analyze.")
         return "\n".join(lines)
+
+    # Handle unusual/anomaly spending queries (before generic month handlers)
+    if "unusual" in q or "anomaly" in q or "strange" in q or "weird" in q:
+        anomaly_item = next((i for i in insights.get("insights", []) if i.get("type") == "anomaly"), None)
+        if anomaly_item and anomaly_item.get("anomalies"):
+            anomalies = anomaly_item.get("anomalies", [])
+            if anomalies:
+                a = anomalies[0]  # Most unusual
+                date_str = ""
+                if a.get("date"):
+                    try:
+                        from datetime import datetime
+                        if hasattr(a.get("date"), "strftime"):
+                            date_str = a.get("date").strftime("%B %d, %Y")
+                        else:
+                            date_str = str(a.get("date"))[:10]
+                    except:
+                        pass
+                desc = f" on {date_str}" if date_str else ""
+                return f"Your most unusual spending was {fmt_money(a.get('amount', 0))} on {a.get('category', 'Unknown')}{desc}. Description: {a.get('description', 'N/A')}."
+        return "No unusual spending patterns detected in your transactions."
 
     # Handle "which month had most savings" (check BEFORE generic savings handler)
     if ("month" in q or "when" in q) and ("save" in q or "saving" in q or "savings" in q):

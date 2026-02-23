@@ -18,6 +18,9 @@ load_dotenv()
 
 app = FastAPI(title="Finance Tracker AI Service", version="1.0.0")
 
+# Simple in-memory conversation history (userId -> list of Q&A pairs)
+conversation_history: dict[str, list[dict[str, str]]] = {}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -58,9 +61,40 @@ def query(body: QueryRequest) -> dict[str, Any]:
     # Load ALL user data (no time limit) for comprehensive answers
     context = build_insights(db=db, user_id=body.userId, since=None, load_all=True)
 
+    # Get conversation history for this user (last 3 exchanges)
+    user_history = conversation_history.get(body.userId, [])
+    
+    # Build conversation context string
+    conversation_context = ""
+    if user_history:
+        conversation_context = "\n\nPrevious Conversation:\n"
+        for exchange in user_history:
+            conversation_context += f"User: {exchange['question']}\n"
+            conversation_context += f"Assistant: {exchange['answer']}\n"
+
     try:
-        text = answer_query(question=body.question, insights=context)
-    except Exception:
-        text = build_fallback_answer(question=body.question, insights=context)
+        text = answer_query(
+            question=body.question, 
+            insights=context,
+            conversation_history=conversation_context
+        )
+    except Exception as e:
+        # Fallback also needs history for context
+        print(f"Gemini failed: {e}, using fallback")
+        text = build_fallback_answer(
+            question=body.question, 
+            insights=context,
+            conversation_history=conversation_context
+        )
+
+    # Store this exchange in history (keep last 3)
+    if body.userId not in conversation_history:
+        conversation_history[body.userId] = []
+    conversation_history[body.userId].append({
+        "question": body.question,
+        "answer": text
+    })
+    # Keep only last 3 exchanges
+    conversation_history[body.userId] = conversation_history[body.userId][-3:]
 
     return {"answer": text}

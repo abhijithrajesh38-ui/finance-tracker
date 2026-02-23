@@ -7,7 +7,7 @@ from typing import Any
 import google.generativeai as genai
 
 
-def answer_query(question: str, insights: dict[str, Any]) -> str:
+def answer_query(question: str, insights: dict[str, Any], conversation_history: str = "") -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("Missing environment variable: GEMINI_API_KEY")
@@ -41,7 +41,9 @@ def answer_query(question: str, insights: dict[str, Any]) -> str:
         "- Do NOT provide generic financial advice unrelated to the user's data.\n"
         "- If truly no relevant data exists, respond: I could not find this information in your financial records.\n"
         "- Output MUST be plain text without markdown, asterisks, or bullet symbols.\n"
-        "- Keep it concise and practical. Use INR currency (₹).\n\n"
+        "- Keep it concise and practical. Use INR currency (₹).\n"
+        "- If the user refers to 'that', 'it', 'this month', or similar references, use the previous conversation context to understand what they're asking about.\n"
+        f"{conversation_history}\n"
         f"User Financial Data (JSON):\n{json.dumps(context, default=str)}\n\n"
         f"User Question: {question}"
     )
