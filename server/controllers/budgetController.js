@@ -53,25 +53,32 @@ export const createBudget = async (req, res) => {
 export const getBudgets = async (req, res) => {
   try {
     const userId = req.query.userId;
-    const budgets = await Budget.find({ userId }).sort({ createdAt: -1 });
+    const budgets = await Budget.find({ userId }).sort({ createdAt: -1 }).lean();
     
-    // Calculate spent amount for each budget
-    for (let budget of budgets) {
-      const transactions = await Transaction.find({
-        userId,
-        category: budget.category,
-        type: 'expense',
-        date: {
-          $gte: new Date(budget.year, budget.month - 1, 1),
-          $lt: new Date(budget.year, budget.month, 1)
-        }
+    // Get all transactions at once
+    const transactions = await Transaction.find({
+      userId,
+      type: 'expense'
+    }).lean();
+    
+    // Calculate spent amount for each budget efficiently
+    const budgetsWithSpent = budgets.map(budget => {
+      const budgetTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return t.category === budget.category &&
+               tDate >= new Date(budget.year, budget.month - 1, 1) &&
+               tDate < new Date(budget.year, budget.month, 1);
       });
       
-      budget.spent = transactions.reduce((sum, t) => sum + t.amount, 0);
-      await budget.save();
-    }
+      const spent = budgetTransactions.reduce((sum, t) => sum + t.amount, 0);
+      
+      return {
+        ...budget,
+        spent
+      };
+    });
     
-    res.json(budgets);
+    res.json(budgetsWithSpent);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -81,22 +88,25 @@ export const getBudgets = async (req, res) => {
 export const getBudgetAlerts = async (req, res) => {
   try {
     const userId = req.query.userId;
-    const budgets = await Budget.find({ userId });
+    const budgets = await Budget.find({ userId }).lean();
+    
+    // Get all expense transactions at once
+    const transactions = await Transaction.find({
+      userId,
+      type: 'expense'
+    }).lean();
     
     const alerts = [];
     
     for (let budget of budgets) {
-      const transactions = await Transaction.find({
-        userId,
-        category: budget.category,
-        type: 'expense',
-        date: {
-          $gte: new Date(budget.year, budget.month - 1, 1),
-          $lt: new Date(budget.year, budget.month, 1)
-        }
+      const budgetTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return t.category === budget.category &&
+               tDate >= new Date(budget.year, budget.month - 1, 1) &&
+               tDate < new Date(budget.year, budget.month, 1);
       });
       
-      const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
+      const spent = budgetTransactions.reduce((sum, t) => sum + t.amount, 0);
       const percentage = (spent / budget.limit) * 100;
       
       if (percentage >= budget.alertAt) {

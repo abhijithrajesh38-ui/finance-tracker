@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import './Report.css';
-import { MdDescription } from 'react-icons/md';
+import { MdDescription, MdDownload, MdPictureAsPdf } from 'react-icons/md';
 
 function Report({ userId }) {
   const [transactions, setTransactions] = useState([]);
+  const [bills, setBills] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (userId) {
       fetchTransactions();
+      fetchBills();
     }
   }, [userId, selectedMonth, selectedYear]);
 
@@ -20,6 +22,16 @@ function Report({ userId }) {
       setTransactions(data);
     } catch (error) {
       console.error('Error fetching transactions:', error);
+    }
+  };
+
+  const fetchBills = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/bills?userId=${userId}`);
+      const data = await response.json();
+      setBills(data);
+    } catch (error) {
+      console.error('Error fetching bills:', error);
     }
   };
 
@@ -53,6 +65,15 @@ function Report({ userId }) {
 
   const highestCategory = categories[0] || ['N/A', 0];
 
+  // Filter unpaid bills for selected month
+  const unpaidBills = bills.filter(bill => {
+    if (bill.isPaid) return false;
+    const dueDate = new Date(bill.dueDate);
+    return dueDate.getMonth() + 1 === selectedMonth && dueDate.getFullYear() === selectedYear;
+  });
+
+  const totalUnpaidAmount = unpaidBills.reduce((sum, bill) => sum + bill.amount, 0);
+
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 
                   'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -61,11 +82,174 @@ function Report({ userId }) {
   // Calculate max amount for scaling
   const maxAmount = Math.max(totalIncome, totalExpenses, 1);
 
+  // Export to CSV
+  const exportToCSV = () => {
+    const monthName = months[selectedMonth - 1];
+    const csvData = [
+      ['Financial Report', `${monthName} ${selectedYear}`],
+      [],
+      ['Summary'],
+      ['Total Income', `₹${totalIncome.toLocaleString()}`],
+      ['Total Expenses', `₹${totalExpenses.toLocaleString()}`],
+      ['Net Savings', `₹${netSavings.toLocaleString()}`],
+      ['Savings Rate', `${savingsRate}%`],
+      [],
+      ['Transactions'],
+      ['Date', 'Description', 'Category', 'Type', 'Amount', 'Payment Method'],
+      ...filteredTransactions.map(t => [
+        new Date(t.date).toLocaleDateString(),
+        t.description,
+        t.category,
+        t.type,
+        `₹${t.amount.toLocaleString()}`,
+        t.paymentMethod || 'Cash'
+      ])
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `financial-report-${monthName}-${selectedYear}.csv`;
+    link.click();
+  };
+
+  // Export to PDF (simple text-based PDF)
+  const exportToPDF = () => {
+    const monthName = months[selectedMonth - 1];
+    
+    // Create a printable HTML content
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Financial Report - ${monthName} ${selectedYear}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; }
+          h1 { color: #1a1a1a; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; }
+          h2 { color: #333; margin-top: 30px; margin-bottom: 15px; }
+          .summary { margin: 30px 0; }
+          .summary-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #e0e0e0; }
+          .summary-item strong { color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #1a1a1a; color: white; padding: 12px; text-align: left; }
+          td { padding: 10px; border-bottom: 1px solid #e0e0e0; }
+          .income { color: #16A34A; }
+          .expense { color: #DC2626; }
+          .unpaid { color: #ff6b6b; }
+          .footer { margin-top: 40px; text-align: center; color: #999; font-size: 12px; }
+          .bills-summary { background: #fafafa; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <h1>Financial Report - ${monthName} ${selectedYear}</h1>
+        
+        <div class="summary">
+          <h2>Summary</h2>
+          <div class="summary-item">
+            <span>Total Income:</span>
+            <strong class="income">₹${totalIncome.toLocaleString()}</strong>
+          </div>
+          <div class="summary-item">
+            <span>Total Expenses:</span>
+            <strong class="expense">₹${totalExpenses.toLocaleString()}</strong>
+          </div>
+          <div class="summary-item">
+            <span>Net Savings:</span>
+            <strong>₹${netSavings.toLocaleString()}</strong>
+          </div>
+          <div class="summary-item">
+            <span>Savings Rate:</span>
+            <strong>${savingsRate}%</strong>
+          </div>
+        </div>
+
+        ${unpaidBills.length > 0 ? `
+        <div class="bills-summary">
+          <h2>Unpaid Bills (${unpaidBills.length})</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Bill Name</th>
+                <th>Due Date</th>
+                <th>Amount</th>
+                <th>Recurring</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${unpaidBills.map(bill => `
+                <tr>
+                  <td>${bill.name}</td>
+                  <td>${new Date(bill.dueDate).toLocaleDateString()}</td>
+                  <td class="unpaid">₹${bill.amount.toLocaleString()}</td>
+                  <td>${bill.recurring ? bill.frequency : 'No'}</td>
+                </tr>
+              `).join('')}
+              <tr style="font-weight: bold; background: #f5f5f5;">
+                <td colspan="2">Total Unpaid</td>
+                <td class="unpaid">₹${totalUnpaidAmount.toLocaleString()}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <h2>Transactions (${filteredTransactions.length})</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Payment</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredTransactions.map(t => `
+              <tr>
+                <td>${new Date(t.date).toLocaleDateString()}</td>
+                <td>${t.description}</td>
+                <td>${t.category}</td>
+                <td>${t.type}</td>
+                <td class="${t.type}">${t.type === 'income' ? '+' : '-'}₹${t.amount.toLocaleString()}</td>
+                <td>${t.paymentMethod || 'Cash'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Open print dialog
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <div className="report-page">
       <header className="report-header">
-        <div className="date-label">FEBRUARY 2026</div>
-        <h1>Report</h1>
+        <div>
+          <div className="date-label">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
+          <h1>Report</h1>
+        </div>
+        <div className="export-buttons">
+          <button className="export-btn csv-btn" onClick={exportToCSV}>
+            <MdDownload /> Export CSV
+          </button>
+          <button className="export-btn pdf-btn" onClick={exportToPDF}>
+            <MdPictureAsPdf /> Export PDF
+          </button>
+        </div>
       </header>
 
       <div className="month-selector">
@@ -166,6 +350,29 @@ function Report({ userId }) {
           </div>
         </div>
       </div>
+
+      {unpaidBills.length > 0 && (
+        <div className="unpaid-bills-section">
+          <div className="section-header-report">
+            <h2>Unpaid Bills</h2>
+            <span className="bills-count">{unpaidBills.length} bill{unpaidBills.length !== 1 ? 's' : ''} • ₹{totalUnpaidAmount.toLocaleString()}</span>
+          </div>
+          <div className="bills-grid-report">
+            {unpaidBills.map(bill => (
+              <div key={bill._id} className="bill-card-report">
+                <div className="bill-header-report">
+                  <h3>{bill.name}</h3>
+                  <span className="bill-amount-report">₹{bill.amount.toLocaleString()}</span>
+                </div>
+                <div className="bill-details-report">
+                  <span className="bill-due-date">Due: {new Date(bill.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  {bill.recurring && <span className="recurring-badge-report">{bill.frequency}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
