@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import './Budget.css';
 import { MdShoppingCart, MdRestaurant, MdTv, MdShoppingBag, MdLocalHospital, MdDirectionsCar, MdDescription, MdSchool, MdCreditCard, MdDelete, MdEdit } from 'react-icons/md';
 
 function Budget({ userId }) {
   const [budgets, setBudgets] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [budgetToDelete, setBudgetToDelete] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [successTitle, setSuccessTitle] = useState('');
   const [editingBudget, setEditingBudget] = useState(null);
@@ -23,25 +24,21 @@ function Budget({ userId }) {
     alertAt: 80
   });
 
-  console.log('Budget component userId:', userId);
+  const fetchBudgets = useCallback(async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/budgets?userId=${userId}`);
+      const data = await response.json();
+      setBudgets(data);
+    } catch (error) {
+      console.error('Error fetching budgets:', error);
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (userId) {
       fetchBudgets();
     }
-  }, [userId]);
-
-  const fetchBudgets = async () => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/budgets?userId=${userId}`);
-      const data = await response.json();
-      setBudgets(data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching budgets:', error);
-      setLoading(false);
-    }
-  };
+  }, [userId, fetchBudgets]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,8 +58,6 @@ function Budget({ userId }) {
         alertAt: parseInt(formData.alertAt)
       };
       
-      console.log('Sending budget data:', budgetData);
-      
       const url = editingBudget 
         ? `http://localhost:5000/api/budgets/${editingBudget._id}`
         : 'http://localhost:5000/api/budgets';
@@ -76,7 +71,6 @@ function Budget({ userId }) {
       });
       
       const data = await response.json();
-      console.log('Server response:', data);
       
       if (response.ok) {
         setShowModal(false);
@@ -157,46 +151,68 @@ function Budget({ userId }) {
     setShowDiscardModal(false);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this budget?')) {
-      try {
-        await fetch(`http://localhost:5000/api/budgets/${id}`, { method: 'DELETE' });
-        fetchBudgets();
-      } catch (error) {
-        console.error('Error deleting budget:', error);
-      }
-    }
-  };
+  const handleDelete = useCallback(async (budget) => {
+    setBudgetToDelete(budget);
+    setShowDeleteModal(true);
+  }, []);
 
-  const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
-  const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
-  const remaining = totalBudget - totalSpent;
-  const overallPercentage = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+  const confirmDelete = useCallback(async () => {
+    try {
+      await fetch(`http://localhost:5000/api/budgets/${budgetToDelete._id}`, { method: 'DELETE' });
+      setShowDeleteModal(false);
+      setBudgetToDelete(null);
+      fetchBudgets();
+      setSuccessTitle('Budget Deleted');
+      setSuccessMessage(`Budget for "${budgetToDelete.category}" has been deleted successfully.`);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+      alert('Error deleting budget');
+    }
+  }, [budgetToDelete]);
+
+  const cancelDelete = useCallback(() => {
+    setShowDeleteModal(false);
+    setBudgetToDelete(null);
+  }, []);
+
+  const totalBudget = useMemo(() => budgets.reduce((sum, b) => sum + b.limit, 0), [budgets]);
+  const totalSpent = useMemo(() => budgets.reduce((sum, b) => sum + b.spent, 0), [budgets]);
+  const remaining = useMemo(() => totalBudget - totalSpent, [totalBudget, totalSpent]);
+  const overallPercentage = useMemo(() => 
+    totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0, 
+    [totalBudget, totalSpent]
+  );
 
   // Filter budgets by search term
-  const filteredBudgets = budgets.filter(budget =>
-    budget.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredBudgets = useMemo(() => 
+    budgets.filter(budget =>
+      budget.category.toLowerCase().includes(searchTerm.toLowerCase())
+    ), 
+    [budgets, searchTerm]
   );
 
   // Pagination
-  const totalPages = Math.ceil(filteredBudgets.length / itemsPerPage);
-  const startIndex = currentPage * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedBudgets = filteredBudgets.slice(startIndex, endIndex);
+  const totalPages = useMemo(() => Math.ceil(filteredBudgets.length / itemsPerPage), [filteredBudgets.length]);
+  const startIndex = useMemo(() => currentPage * itemsPerPage, [currentPage]);
+  const endIndex = useMemo(() => startIndex + itemsPerPage, [startIndex]);
+  const paginatedBudgets = useMemo(() => {
+    return filteredBudgets.slice(startIndex, endIndex);
+  }, [filteredBudgets, startIndex, endIndex]);
 
-  const handlePreviousPage = () => {
+  const handlePreviousPage = useCallback(() => {
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
     }
-  };
+  }, [currentPage]);
 
-  const handleNextPage = () => {
+  const handleNextPage = useCallback(() => {
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1);
     }
-  };
+  }, [currentPage, totalPages]);
 
-  const getIcon = (category) => {
+  const getIcon = useCallback((category) => {
     const icons = {
       'Groceries': <MdShoppingCart />,
       'Food': <MdRestaurant />,
@@ -208,13 +224,13 @@ function Budget({ userId }) {
       'Education': <MdSchool />
     };
     return icons[category] || <MdCreditCard />;
-  };
+  }, []);
 
-  const getProgressColor = (percentage) => {
+  const getProgressColor = useCallback((percentage) => {
     if (percentage >= 100) return '#f44336';
     if (percentage >= 80) return '#ffd700';
     return '#1a1a1a';
-  };
+  }, []);
 
   return (
     <div className="budget-page">
@@ -274,9 +290,7 @@ function Budget({ userId }) {
       <div className="category-breakdown">
         <h2>Category Breakdown</h2>
 
-        {loading ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
-        ) : filteredBudgets.length === 0 ? (
+        {filteredBudgets.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
             {searchTerm ? 'No budgets found matching your search.' : 'No budgets set yet. Click "Set Budget" to create one.'}
           </div>
@@ -297,7 +311,7 @@ function Budget({ userId }) {
                     </div>
                     <div className="budget-actions">
                       <button className="action-btn edit" onClick={() => handleEdit(budget)}><MdEdit /></button>
-                      <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
+                      <button className="action-btn delete" onClick={() => handleDelete(budget)}><MdDelete /></button>
                     </div>
                   </div>
                   <div className="budget-progress-bar">
@@ -440,6 +454,27 @@ function Budget({ userId }) {
             <div className="discard-buttons">
               <button className="discard-btn" onClick={handleDiscard}>Discard</button>
               <button className="continue-btn" onClick={handleContinueEditing}>Continue editing</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete Budget</h2>
+            <div className="delete-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#ffe8e8"/>
+                <path d="M30 30L50 50M50 30L30 50" stroke="#ff4444" strokeWidth="4" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p className="delete-message">
+              Are you sure you want to delete the budget for "{budgetToDelete?.category}"? This action cannot be undone.
+            </p>
+            <div className="delete-modal-actions">
+              <button className="cancel-btn" onClick={cancelDelete}>Cancel</button>
+              <button className="confirm-delete-btn" onClick={confirmDelete}>Delete</button>
             </div>
           </div>
         </div>

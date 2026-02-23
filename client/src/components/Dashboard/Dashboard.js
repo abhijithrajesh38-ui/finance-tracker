@@ -6,11 +6,10 @@ import Budget from '../Budget/Budget';
 import Finn from '../Finn/Finn';
 import Report from '../Report/Report';
 import Compare from '../Compare/Compare';
+import Bills from '../Bills/Bills';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
-  MdNotifications, MdPerson, MdWarning, MdTv, MdRestaurant,
-  MdDirectionsCar, MdShoppingBag, MdDescription, MdLocalHospital,
-  MdCreditCard, MdDelete
+  MdNotifications, MdPerson, MdWarning, MdArrowDownward, MdArrowUpward
 } from 'react-icons/md';
 
 function Dashboard({ user, onLogout }) {
@@ -26,8 +25,18 @@ function Dashboard({ user, onLogout }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [budgets, setBudgets] = useState([]);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [upcomingBills, setUpcomingBills] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   console.log('Dashboard user object:', user);
+
+  // Refresh data when returning to dashboard
+  useEffect(() => {
+    if (user && user.id && currentPage === 'dashboard') {
+      fetchUpcomingBills();
+      fetchBudgetAlerts();
+    }
+  }, [currentPage, user]);
 
   useEffect(() => {
     if (user && user.id) {
@@ -35,12 +44,7 @@ function Dashboard({ user, onLogout }) {
       fetchBudgetAlerts();
       fetchBudgets();
       fetchAiInsights();
-      // Check if notifications were previously read
-      const notifReadKey = `notifications_read_${user.id}`;
-      const wasRead = localStorage.getItem(notifReadKey);
-      if (wasRead === 'true') {
-        setHasUnreadNotifications(false);
-      }
+      fetchUpcomingBills();
     }
   }, [user]);
 
@@ -79,32 +83,33 @@ function Dashboard({ user, onLogout }) {
       const data = await response.json();
       console.log('Budget alerts:', data);
       
-      // Check if alerts have changed (new alerts appeared)
-      const alertsKey = `last_alerts_${user.id}`;
-      const lastAlertsStr = localStorage.getItem(alertsKey);
-      const lastAlerts = lastAlertsStr ? JSON.parse(lastAlertsStr) : [];
-      
-      // Compare alert counts or content
-      const hasNewAlerts = data.length > lastAlerts.length;
+      // Check if alerts have changed
+      const alertsKey = `last_seen_alerts_${user.id}`;
+      const lastSeenStr = localStorage.getItem(alertsKey);
+      const lastSeen = lastSeenStr ? JSON.parse(lastSeenStr) : [];
       
       setBudgetAlerts(data);
       
-      // Store current alerts
-      localStorage.setItem(alertsKey, JSON.stringify(data));
+      // Calculate new alerts (not in last seen)
+      const newAlerts = data.filter(alert => 
+        !lastSeen.some(seen => 
+          seen.category === alert.category && 
+          seen.month === alert.month && 
+          seen.year === alert.year
+        )
+      );
       
-      // If there are new alerts, reset the read state
-      if (hasNewAlerts && data.length > 0) {
-        const notifReadKey = `notifications_read_${user.id}`;
-        localStorage.removeItem(notifReadKey);
-        setHasUnreadNotifications(true);
-      } else {
-        // Check if notifications were previously read
-        const notifReadKey = `notifications_read_${user.id}`;
-        const wasRead = localStorage.getItem(notifReadKey);
-        if (data.length > 0 && wasRead !== 'true') {
-          setHasUnreadNotifications(true);
-        }
-      }
+      // Get current bills to calculate total
+      const billsKey = `last_seen_bills_${user.id}`;
+      const lastSeenBillsStr = localStorage.getItem(billsKey);
+      const lastSeenBills = lastSeenBillsStr ? JSON.parse(lastSeenBillsStr) : [];
+      
+      const newBills = upcomingBills.filter(bill => 
+        !lastSeenBills.some(seen => seen._id === bill._id)
+      );
+      
+      // Update unread count
+      updateUnreadCount(newAlerts.length, newBills.length);
     } catch (error) {
       console.error('Error fetching budget alerts:', error);
     }
@@ -118,6 +123,55 @@ function Dashboard({ user, onLogout }) {
     } catch (error) {
       console.error('Error fetching budgets:', error);
     }
+  };
+
+  const fetchUpcomingBills = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/bills/upcoming?userId=${user.id}`);
+      const data = await response.json();
+      console.log('Upcoming bills:', data);
+      
+      // Check if bills have changed
+      const billsKey = `last_seen_bills_${user.id}`;
+      const lastSeenStr = localStorage.getItem(billsKey);
+      const lastSeen = lastSeenStr ? JSON.parse(lastSeenStr) : [];
+      
+      setUpcomingBills(data);
+      
+      // Calculate new bills (not in last seen)
+      const newBills = data.filter(bill => 
+        !lastSeen.some(seen => seen._id === bill._id)
+      );
+      
+      // Get current alerts to calculate total
+      const alertsKey = `last_seen_alerts_${user.id}`;
+      const lastSeenAlertsStr = localStorage.getItem(alertsKey);
+      const lastSeenAlerts = lastSeenAlertsStr ? JSON.parse(lastSeenAlertsStr) : [];
+      
+      const newAlerts = budgetAlerts.filter(alert => 
+        !lastSeenAlerts.some(seen => 
+          seen.category === alert.category && 
+          seen.month === alert.month && 
+          seen.year === alert.year
+        )
+      );
+      
+      // Update unread count
+      updateUnreadCount(newAlerts.length, newBills.length);
+    } catch (error) {
+      console.error('Error fetching upcoming bills:', error);
+    }
+  };
+
+  const updateUnreadCount = (alertsOrCount, billsOrCount) => {
+    const alertCount = typeof alertsOrCount === 'number' ? alertsOrCount : 
+                       (Array.isArray(alertsOrCount) ? alertsOrCount.length : 0);
+    const billCount = typeof billsOrCount === 'number' ? billsOrCount : 
+                      (Array.isArray(billsOrCount) ? billsOrCount.length : 0);
+    
+    const total = alertCount + billCount;
+    setUnreadCount(total);
+    setHasUnreadNotifications(total > 0);
   };
 
   // Filter transactions based on chart filter
@@ -317,26 +371,26 @@ function Dashboard({ user, onLogout }) {
 
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
-    // Mark as read when opened and persist to localStorage
-    if (!showNotifications) {
+    // Mark all current notifications as seen when opened
+    if (!showNotifications && (budgetAlerts.length > 0 || upcomingBills.length > 0)) {
+      // Save current alerts and bills as "seen"
+      const alertsKey = `last_seen_alerts_${user.id}`;
+      const billsKey = `last_seen_bills_${user.id}`;
+      localStorage.setItem(alertsKey, JSON.stringify(budgetAlerts));
+      localStorage.setItem(billsKey, JSON.stringify(upcomingBills));
+      
+      // Reset unread count
+      setUnreadCount(0);
       setHasUnreadNotifications(false);
-      const notifReadKey = `notifications_read_${user.id}`;
-      localStorage.setItem(notifReadKey, 'true');
     }
   };
 
-  const getIcon = (category) => {
-    const icons = {
-      'Entertainment': <MdTv />,
-      'Income': <MdAccountBalance />,
-      'Salary': <MdAccountBalance />,
-      'Food': <MdRestaurant />,
-      'Transport': <MdDirectionsCar />,
-      'Shopping': <MdShoppingBag />,
-      'Bills': <MdDescription />,
-      'Health': <MdLocalHospital />
-    };
-    return icons[category] || <MdCreditCard />;
+  const getIcon = (type) => {
+    if (type === 'income') {
+      return <MdArrowDownward />;
+    } else {
+      return <MdArrowUpward />;
+    }
   };
 
   const getGreeting = () => {
@@ -403,6 +457,17 @@ function Dashboard({ user, onLogout }) {
     );
   }
 
+  if (currentPage === 'bills') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="bills" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Bills userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard">
       <Sidebar currentPage="dashboard" onNavigate={setCurrentPage} />
@@ -417,27 +482,51 @@ function Dashboard({ user, onLogout }) {
             <div className="notification-container">
               <button className="icon-btn" onClick={handleNotificationClick}>
                 <MdNotifications />
-                {hasUnreadNotifications && budgetAlerts.length > 0 && (
-                  <span className="notification-badge">{budgetAlerts.length}</span>
+                {hasUnreadNotifications && unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount}</span>
                 )}
               </button>
               {showNotifications && (
                 <div className="notification-dropdown">
-                  <div className="notification-header">Budget Alerts</div>
-                  {budgetAlerts.length === 0 ? (
-                    <div className="notification-empty">No alerts</div>
-                  ) : (
-                    budgetAlerts.map((alert, index) => (
-                      <div key={index} className="notification-item">
-                        <div className="notification-title"><MdWarning /> {alert.category}</div>
-                        <div className="notification-text">
-                          You've spent ₹{alert.spent.toLocaleString()} ({alert.percentage}%) of your ₹{alert.limit.toLocaleString()} budget
+                  {upcomingBills.length > 0 && (
+                    <>
+                      <div className="notification-header">Upcoming Bills</div>
+                      {upcomingBills.map((bill, index) => {
+                        const daysUntil = Math.ceil((new Date(bill.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+                        return (
+                          <div key={`bill-${index}`} className="notification-item">
+                            <div className="notification-title"><MdWarning /> {bill.name}</div>
+                            <div className="notification-text">
+                              Amount: ₹{bill.amount.toLocaleString()} - Due in {daysUntil} {daysUntil === 1 ? 'day' : 'days'}
+                            </div>
+                            <div className="notification-date">
+                              {new Date(bill.dueDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                  
+                  {budgetAlerts.length > 0 && (
+                    <>
+                      <div className="notification-header">Budget Alerts</div>
+                      {budgetAlerts.map((alert, index) => (
+                        <div key={`budget-${index}`} className="notification-item">
+                          <div className="notification-title"><MdWarning /> {alert.category}</div>
+                          <div className="notification-text">
+                            You've spent ₹{alert.spent.toLocaleString()} ({alert.percentage}%) of your ₹{alert.limit.toLocaleString()} budget
+                          </div>
+                          <div className="notification-date">
+                            {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][alert.month - 1]} {alert.year}
+                          </div>
                         </div>
-                        <div className="notification-date">
-                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][alert.month - 1]} {alert.year}
-                        </div>
-                      </div>
-                    ))
+                      ))}
+                    </>
+                  )}
+                  
+                  {budgetAlerts.length === 0 && upcomingBills.length === 0 && (
+                    <div className="notification-empty">No notifications</div>
                   )}
                 </div>
               )}
@@ -667,7 +756,9 @@ function Dashboard({ user, onLogout }) {
               ) : (
                 transactions.slice(0, 6).map(transaction => (
                   <div key={transaction._id} className="transaction-item">
-                    <div className="transaction-icon">{getIcon(transaction.category)}</div>
+                    <div className={`transaction-icon ${transaction.type === 'income' ? 'icon-income' : 'icon-expense'}`}>
+                      {getIcon(transaction.type)}
+                    </div>
                     <div className="transaction-details">
                       <div className="transaction-name">{transaction.description}</div>
                       <div className="transaction-category">{transaction.category}</div>

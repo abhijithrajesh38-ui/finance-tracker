@@ -6,6 +6,13 @@
 
 .report-header {
   margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.report-header > div:first-child {
+  flex: 1;
 }
 
 .date-label {
@@ -20,6 +27,50 @@
   font-weight: 600;
   color: #333;
   margin: 0;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.export-btn svg {
+  font-size: 18px;
+}
+
+.csv-btn {
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid #e0e0e0;
+}
+
+.csv-btn:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+  transform: translateY(-2px);
+}
+
+.pdf-btn {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.pdf-btn:hover {
+  background: #333;
+  transform: translateY(-2px);
 }
 
 .month-selector {
@@ -354,4 +405,97 @@
   color: #666;
   font-weight: 500;
   text-align: center;
+}
+
+
+/* Unpaid Bills Section */
+.unpaid-bills-section {
+  margin-top: 30px;
+  background: #fff;
+  padding: 32px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.section-header-report {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.section-header-report h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.bills-count {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.bills-grid-report {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.bill-card-report {
+  background: #fafafa;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+  transition: all 0.3s ease;
+}
+
+.bill-card-report:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.bill-header-report {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.bill-header-report h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  flex: 1;
+}
+
+.bill-amount-report {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ff6b6b;
+}
+
+.bill-details-report {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.bill-due-date {
+  color: #666;
+}
+
+.recurring-badge-report {
+  background: #e8e8e8;
+  color: #666;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
 }
