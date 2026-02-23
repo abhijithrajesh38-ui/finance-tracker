@@ -35,6 +35,12 @@ function Dashboard({ user, onLogout }) {
       fetchBudgetAlerts();
       fetchBudgets();
       fetchAiInsights();
+      // Check if notifications were previously read
+      const notifReadKey = `notifications_read_${user.id}`;
+      const wasRead = localStorage.getItem(notifReadKey);
+      if (wasRead === 'true') {
+        setHasUnreadNotifications(false);
+      }
     }
   }, [user]);
 
@@ -72,10 +78,32 @@ function Dashboard({ user, onLogout }) {
       const response = await fetch(`http://localhost:5000/api/budgets/alerts?userId=${user.id}`);
       const data = await response.json();
       console.log('Budget alerts:', data);
+      
+      // Check if alerts have changed (new alerts appeared)
+      const alertsKey = `last_alerts_${user.id}`;
+      const lastAlertsStr = localStorage.getItem(alertsKey);
+      const lastAlerts = lastAlertsStr ? JSON.parse(lastAlertsStr) : [];
+      
+      // Compare alert counts or content
+      const hasNewAlerts = data.length > lastAlerts.length;
+      
       setBudgetAlerts(data);
-      // Check if there are new alerts
-      if (data.length > 0) {
+      
+      // Store current alerts
+      localStorage.setItem(alertsKey, JSON.stringify(data));
+      
+      // If there are new alerts, reset the read state
+      if (hasNewAlerts && data.length > 0) {
+        const notifReadKey = `notifications_read_${user.id}`;
+        localStorage.removeItem(notifReadKey);
         setHasUnreadNotifications(true);
+      } else {
+        // Check if notifications were previously read
+        const notifReadKey = `notifications_read_${user.id}`;
+        const wasRead = localStorage.getItem(notifReadKey);
+        if (data.length > 0 && wasRead !== 'true') {
+          setHasUnreadNotifications(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching budget alerts:', error);
@@ -131,7 +159,7 @@ function Dashboard({ user, onLogout }) {
 
   const filteredTransactions = getFilteredTransactions();
 
-  // Calculate totals
+  // Calculate totals for current period
   const totalIncome = filteredTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -142,6 +170,82 @@ function Dashboard({ user, onLogout }) {
   
   const totalBalance = totalIncome - totalExpenses;
   const netSavings = totalIncome - totalExpenses;
+
+  // Calculate last period's totals for comparison based on current filter
+  const getLastPeriodData = () => {
+    const now = new Date();
+    let lastPeriodTransactions = [];
+    
+    if (chartFilter === 'Week') {
+      // Compare with last week
+      const currentDay = now.getDay();
+      const lastWeekStart = new Date(now);
+      lastWeekStart.setDate(now.getDate() - currentDay - 7);
+      lastWeekStart.setHours(0, 0, 0, 0);
+      
+      const lastWeekEnd = new Date(lastWeekStart);
+      lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+      lastWeekEnd.setHours(23, 59, 59, 999);
+      
+      lastPeriodTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate >= lastWeekStart && tDate <= lastWeekEnd;
+      });
+    } else if (chartFilter === 'Month') {
+      // Compare with last month
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      
+      lastPeriodTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate >= lastMonth && tDate <= lastMonthEnd;
+      });
+    } else if (chartFilter === 'Year') {
+      // Compare with last year
+      const lastYear = now.getFullYear() - 1;
+      
+      lastPeriodTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate.getFullYear() === lastYear;
+      });
+    }
+    
+    const lastPeriodIncome = lastPeriodTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const lastPeriodExpenses = lastPeriodTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const lastPeriodBalance = lastPeriodIncome - lastPeriodExpenses;
+    const lastPeriodSavings = lastPeriodIncome - lastPeriodExpenses;
+    
+    return { lastPeriodIncome, lastPeriodExpenses, lastPeriodBalance, lastPeriodSavings };
+  };
+
+  const { lastPeriodIncome, lastPeriodExpenses, lastPeriodBalance, lastPeriodSavings } = getLastPeriodData();
+
+  // Calculate percentage changes
+  const calculateChange = (current, previous) => {
+    // If no previous data exists, show 0%
+    if (previous === 0 && current === 0) return 0;
+    if (previous === 0) return 0; // Show 0% when no previous data to compare
+    return ((current - previous) / previous * 100).toFixed(1);
+  };
+
+  const balanceChange = calculateChange(totalBalance, lastPeriodBalance);
+  const incomeChange = calculateChange(totalIncome, lastPeriodIncome);
+  const expensesChange = calculateChange(totalExpenses, lastPeriodExpenses);
+  const savingsChange = calculateChange(netSavings, lastPeriodSavings);
+
+  // Get period label for stat cards
+  const getPeriodLabel = () => {
+    if (chartFilter === 'Week') return 'from last week';
+    if (chartFilter === 'Month') return 'from last month';
+    if (chartFilter === 'Year') return 'from last year';
+    return 'from last month';
+  };
 
   // Calculate chart data based on filter
   const getChartData = () => {
@@ -213,9 +317,11 @@ function Dashboard({ user, onLogout }) {
 
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
-    // Mark as read when opened
+    // Mark as read when opened and persist to localStorage
     if (!showNotifications) {
       setHasUnreadNotifications(false);
+      const notifReadKey = `notifications_read_${user.id}`;
+      localStorage.setItem(notifReadKey, 'true');
     }
   };
 
@@ -231,6 +337,17 @@ function Dashboard({ user, onLogout }) {
       'Health': <MdLocalHospital />
     };
     return icons[category] || <MdCreditCard />;
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      return 'Good morning';
+    } else if (hour < 18) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
   };
 
   if (currentPage === 'transactions') {
@@ -293,8 +410,8 @@ function Dashboard({ user, onLogout }) {
       <main className="main-content">
         <header className="top-bar">
           <div>
-            <div className="date">FEBRUARY 2026</div>
-            <h1>Good morning, <span className="username">{user.fullName}</span></h1>
+            <div className="date">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
+            <h1>{getGreeting()}, <span className="username">{user.fullName}</span></h1>
           </div>
           <div className="header-actions">
             <div className="notification-container">
@@ -349,7 +466,11 @@ function Dashboard({ user, onLogout }) {
             <div className="stat-content">
               <div className="stat-label">TOTAL BALANCE</div>
               <div className="stat-value">₹{totalBalance.toLocaleString()}</div>
-              <div className="stat-change positive">+2.4% from last month</div>
+              {lastPeriodBalance !== 0 && (
+                <div className={`stat-change ${balanceChange >= 0 ? 'positive' : 'negative'}`}>
+                  {balanceChange >= 0 ? '+' : ''}{balanceChange}% {getPeriodLabel()}
+                </div>
+              )}
             </div>
           </div>
           <div className="stat-card light">
@@ -357,7 +478,11 @@ function Dashboard({ user, onLogout }) {
             <div className="stat-content">
               <div className="stat-label">TOTAL INCOME</div>
               <div className="stat-value">₹{totalIncome.toLocaleString()}</div>
-              <div className="stat-change positive">+3.2% since Jan</div>
+              {lastPeriodIncome !== 0 && (
+                <div className={`stat-change ${incomeChange >= 0 ? 'positive' : 'negative'}`}>
+                  {incomeChange >= 0 ? '+' : ''}{incomeChange}% {getPeriodLabel()}
+                </div>
+              )}
             </div>
           </div>
           <div className="stat-card light">
@@ -365,7 +490,11 @@ function Dashboard({ user, onLogout }) {
             <div className="stat-content">
               <div className="stat-label">TOTAL EXPENSES</div>
               <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
-              <div className="stat-change negative">5.1% overspend</div>
+              {lastPeriodExpenses !== 0 && (
+                <div className={`stat-change ${expensesChange >= 0 ? 'negative' : 'positive'}`}>
+                  {expensesChange >= 0 ? '+' : ''}{expensesChange}% {getPeriodLabel()}
+                </div>
+              )}
             </div>
           </div>
           <div className="stat-card light">
@@ -373,7 +502,11 @@ function Dashboard({ user, onLogout }) {
             <div className="stat-content">
               <div className="stat-label">NET SAVINGS</div>
               <div className="stat-value">₹{netSavings.toLocaleString()}</div>
-              <div className="stat-change positive">+8.6% efficiency</div>
+              {(lastPeriodIncome !== 0 || lastPeriodExpenses !== 0) && (
+                <div className={`stat-change ${savingsChange >= 0 ? 'positive' : 'negative'}`}>
+                  {savingsChange >= 0 ? '+' : ''}{savingsChange}% {getPeriodLabel()}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -401,8 +534,20 @@ function Dashboard({ user, onLogout }) {
                   {chartData.map((data, index) => (
                     <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                       <div className="bar-group">
-                        <div className="bar income" style={{height: `${(data.income / maxAmount) * 350}px`}}></div>
-                        <div className="bar expense" style={{height: `${(data.expense / maxAmount) * 350}px`}}></div>
+                        <div 
+                          className="bar income" 
+                          style={{height: `${(data.income / maxAmount) * 350}px`}}
+                          title={`Income: ₹${data.income.toLocaleString()}`}
+                        >
+                          <div className="bar-tooltip">₹{data.income.toLocaleString()}</div>
+                        </div>
+                        <div 
+                          className="bar expense" 
+                          style={{height: `${(data.expense / maxAmount) * 350}px`}}
+                          title={`Expenses: ₹${data.expense.toLocaleString()}`}
+                        >
+                          <div className="bar-tooltip">₹{data.expense.toLocaleString()}</div>
+                        </div>
                       </div>
                       <div className="bar-label">{data.label}</div>
                     </div>

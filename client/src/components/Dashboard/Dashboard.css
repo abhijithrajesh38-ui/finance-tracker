@@ -419,6 +419,56 @@
   max-width: 50px;
   border-radius: 8px;
   margin: 0 5px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.bar:hover {
+  opacity: 0.85;
+  transform: translateY(-3px);
+}
+
+.bar:hover .bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-10px);
+}
+
+.bar-tooltip {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bar-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(0, 0, 0, 0.85);
+}
+
+.bar.expense .bar-tooltip {
+  color: #ff6b6b;
 }
 
 .bar.income {
