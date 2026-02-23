@@ -221,7 +221,7 @@
 .modal-content {
   background: white;
   border-radius: 24px;
-  padding: 40px;
+  padding: 32px;
   width: 600px;
   max-width: 90%;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -231,11 +231,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .modal-header h2 {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 600;
   color: #1a1a1a;
   margin: 0;
@@ -244,13 +244,13 @@
 .close-btn {
   background: none;
   border: none;
-  font-size: 32px;
+  font-size: 28px;
   cursor: pointer;
   color: #999;
   line-height: 1;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,22 +261,22 @@
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
   display: block;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: #666;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 18px 24px;
-  border: 2px solid #d0d0d0;
+  padding: 14px 18px;
+  border: 2px solid #e0e0e0;
   border-radius: 50px;
   font-size: 15px;
   font-family: inherit;
@@ -309,21 +309,25 @@
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 16px;
 }
 
 .submit-btn {
-  width: 100%;
-  padding: 16px;
+  width: 156px;
+  height: 42px;
   background: #1a1a1a;
   color: white;
   border: none;
   border-radius: 50px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  margin-top: 16px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
 }
 
 .submit-btn:hover {

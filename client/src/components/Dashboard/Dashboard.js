@@ -580,7 +580,7 @@ function Dashboard({ user, onLogout }) {
               <div className="stat-label">TOTAL EXPENSES</div>
               <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
               {lastPeriodExpenses !== 0 && (
-                <div className={`stat-change ${expensesChange >= 0 ? 'negative' : 'positive'}`}>
+                <div className={`stat-change ${expensesChange >= 0 ? 'positive' : 'negative'}`}>
                   {expensesChange >= 0 ? '+' : ''}{expensesChange}% {getPeriodLabel()}
                 </div>
               )}

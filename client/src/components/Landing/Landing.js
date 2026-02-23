@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import './Landing.css';
 import logo from '../../assets/images/Vector.svg';
+import dashboardPreview from '../../assets/images/Finance Dashboard v1.jpg';
+import finnAIPreview from '../../assets/images/Finn AI 2 Budget v1.jpg';
 import { MdDashboard, MdSwapHoriz, MdReceipt, MdSavings, MdBarChart, MdChat } from 'react-icons/md';
 
 function Landing() {
@@ -45,7 +47,7 @@ function Landing() {
       {/* Dashboard Preview Section */}
       <section className="preview-section">
         <div className="dashboard-preview">
-          <div className="preview-placeholder"></div>
+          <img src={dashboardPreview} alt="Dashboard Preview" className="preview-image" />
         </div>
       </section>
 
@@ -119,7 +121,7 @@ function Landing() {
             <span className="italic">co-pilot.</span>
           </h2>
           <p className="copilot-description">
-            Finn doesn't just show you numbers — it reads between the lines. From catching a wasted subscription to spotting the perfect ETF name, Finn works quietly in the background so you don't have to.
+            Finn doesn't just show you numbers — it reads between the lines. From catching a wasted subscription to spotting the perfect investment opportunity, Finn works quietly in the background so you don't have to.
           </p>
           <div className="copilot-tags">
             <span className="tag">SPOT SPENDING LEAKS</span>
@@ -129,7 +131,7 @@ function Landing() {
           </div>
         </div>
         <div className="copilot-preview">
-          <div className="preview-placeholder"></div>
+          <img src={finnAIPreview} alt="Finn AI Preview" className="copilot-image" />
         </div>
       </section>
 
