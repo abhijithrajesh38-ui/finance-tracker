@@ -9,8 +9,12 @@ function Budget({ userId }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [successTitle, setSuccessTitle] = useState('');
   const [editingBudget, setEditingBudget] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 4;
   const [formData, setFormData] = useState({
     category: '',
     limit: '',
@@ -77,12 +81,16 @@ function Budget({ userId }) {
       if (response.ok) {
         setShowModal(false);
         
-        // Only show success modal when editing
+        // Show success modal for both create and edit
+        const categoryName = formData.category;
         if (editingBudget) {
-          const categoryName = formData.category;
+          setSuccessTitle('Budget Updated');
           setSuccessMessage(`Your changes to "${categoryName}" have been saved successfully.`);
-          setShowSuccessModal(true);
+        } else {
+          setSuccessTitle('Budget Created');
+          setSuccessMessage(`Budget for "${categoryName}" has been created successfully.`);
         }
+        setShowSuccessModal(true);
         
         setEditingBudget(null);
         setHasChanges(false);
@@ -165,6 +173,29 @@ function Budget({ userId }) {
   const remaining = totalBudget - totalSpent;
   const overallPercentage = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
 
+  // Filter budgets by search term
+  const filteredBudgets = budgets.filter(budget =>
+    budget.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Pagination
+  const totalPages = Math.ceil(filteredBudgets.length / itemsPerPage);
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBudgets = filteredBudgets.slice(startIndex, endIndex);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   const getIcon = (category) => {
     const icons = {
       'Groceries': <MdShoppingCart />,
@@ -213,7 +244,7 @@ function Budget({ userId }) {
         <div className="summary-card-budget">
           <div className="summary-label">Total Budget</div>
           <div className="summary-value">₹{totalBudget.toLocaleString()}</div>
-          <div className="summary-count">across 8 categories</div>
+          <div className="summary-count">across {budgets.length} categories</div>
         </div>
         <div className="summary-card-budget">
           <div className="summary-label">Total Spent</div>
@@ -227,47 +258,87 @@ function Budget({ userId }) {
         </div>
       </div>
 
+      <div className="search-bar-budget">
+        <input
+          type="text"
+          placeholder="Search budgets by category..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(0);
+          }}
+          className="search-input-budget"
+        />
+      </div>
+
       <div className="category-breakdown">
         <h2>Category Breakdown</h2>
 
         {loading ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
-        ) : budgets.length === 0 ? (
+        ) : filteredBudgets.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-            No budgets set yet. Click "Set Budget" to create one.
+            {searchTerm ? 'No budgets found matching your search.' : 'No budgets set yet. Click "Set Budget" to create one.'}
           </div>
         ) : (
-          budgets.map(budget => {
-            const percentage = budget.limit > 0 ? Math.round((budget.spent / budget.limit) * 100) : 0;
-            return (
-              <div key={budget._id} className="budget-item-large">
-                <div className="budget-header">
-                  <div className="budget-info">
-                    <span className="budget-icon-large">{getIcon(budget.category)}</span>
-                    <span className="budget-name">{budget.category}</span>
+          <>
+            {paginatedBudgets.map(budget => {
+              const percentage = budget.limit > 0 ? Math.round((budget.spent / budget.limit) * 100) : 0;
+              return (
+                <div key={budget._id} className="budget-item-large">
+                  <div className="budget-header">
+                    <div className="budget-info">
+                      <span className="budget-icon-large">{getIcon(budget.category)}</span>
+                      <span className="budget-name">{budget.category}</span>
+                    </div>
+                    <div className="budget-amounts">
+                      <span className="amount-spent">₹{budget.spent.toLocaleString()}</span>
+                      <span className="amount-total">/₹{budget.limit.toLocaleString()}</span>
+                    </div>
+                    <div className="budget-actions">
+                      <button className="action-btn edit" onClick={() => handleEdit(budget)}><MdEdit /></button>
+                      <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
+                    </div>
                   </div>
-                  <div className="budget-amounts">
-                    <span className="amount-spent">₹{budget.spent.toLocaleString()}</span>
-                    <span className="amount-total">/₹{budget.limit.toLocaleString()}</span>
+                  <div className="budget-progress-bar">
+                    <div 
+                      className="budget-progress-fill" 
+                      style={{ 
+                        width: `${Math.min(percentage, 100)}%`,
+                        background: getProgressColor(percentage)
+                      }}
+                    ></div>
                   </div>
-                  <div className="budget-actions">
-                    <button className="action-btn edit" onClick={() => handleEdit(budget)}><MdEdit /></button>
-                    <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
-                  </div>
+                  <div className="budget-percentage-label">{percentage}%</div>
                 </div>
-                <div className="budget-progress-bar">
-                  <div 
-                    className="budget-progress-fill" 
-                    style={{ 
-                      width: `${Math.min(percentage, 100)}%`,
-                      background: getProgressColor(percentage)
-                    }}
-                  ></div>
+              );
+            })}
+            
+            {filteredBudgets.length > itemsPerPage && (
+              <div className="pagination">
+                <span>
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredBudgets.length)} of {filteredBudgets.length} budgets
+                </span>
+                <div className="pagination-controls">
+                  <button 
+                    className="page-btn" 
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 0}
+                  >
+                    ◀
+                  </button>
+                  <span className="page-info">Page {currentPage + 1} of {totalPages || 1}</span>
+                  <button 
+                    className="page-btn" 
+                    onClick={handleNextPage}
+                    disabled={currentPage >= totalPages - 1}
+                  >
+                    ▶
+                  </button>
                 </div>
-                <div className="budget-percentage-label">{percentage}%</div>
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
@@ -342,7 +413,7 @@ function Budget({ userId }) {
       {showSuccessModal && (
         <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
           <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Budget Updated</h2>
+            <h2>{successTitle}</h2>
             <div className="success-icon">
               <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
                 <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>

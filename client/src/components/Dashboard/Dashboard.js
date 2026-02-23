@@ -297,13 +297,6 @@ function Dashboard({ user, onLogout }) {
             <h1>Good morning, <span className="username">{user.fullName}</span></h1>
           </div>
           <div className="header-actions">
-            <input 
-              type="text" 
-              placeholder="Search Insights..." 
-              className="search-box"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
             <div className="notification-container">
               <button className="icon-btn" onClick={handleNotificationClick}>
                 <MdNotifications />
@@ -353,27 +346,35 @@ function Dashboard({ user, onLogout }) {
         <div className="stats-grid">
           <div className="stat-card dark">
             <div className="stat-icon"><MdAccountBalance /></div>
-            <div className="stat-label">Total Balance</div>
-            <div className="stat-value">₹{totalBalance.toLocaleString()}</div>
-            <div className="stat-change positive">Current balance</div>
+            <div className="stat-content">
+              <div className="stat-label">TOTAL BALANCE</div>
+              <div className="stat-value">₹{totalBalance.toLocaleString()}</div>
+              <div className="stat-change positive">+2.4% from last month</div>
+            </div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card light">
             <div className="stat-icon"><MdTrendingDown /></div>
-            <div className="stat-label">Total Income</div>
-            <div className="stat-value">₹{totalIncome.toLocaleString()}</div>
-            <div className="stat-change positive">{transactions.filter(t => t.type === 'income').length} transactions</div>
+            <div className="stat-content">
+              <div className="stat-label">TOTAL INCOME</div>
+              <div className="stat-value">₹{totalIncome.toLocaleString()}</div>
+              <div className="stat-change positive">+3.2% since Jan</div>
+            </div>
           </div>
-          <div className="stat-card beige">
+          <div className="stat-card light">
             <div className="stat-icon"><MdTrendingUp /></div>
-            <div className="stat-label">Total Expenses</div>
-            <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
-            <div className="stat-change negative">{transactions.filter(t => t.type === 'expense').length} transactions</div>
+            <div className="stat-content">
+              <div className="stat-label">TOTAL EXPENSES</div>
+              <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
+              <div className="stat-change negative">5.1% overspend</div>
+            </div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card light">
             <div className="stat-icon"><MdSavings /></div>
-            <div className="stat-label">Net Savings</div>
-            <div className="stat-value">₹{netSavings.toLocaleString()}</div>
-            <div className="stat-change positive">{totalIncome > 0 ? `${((netSavings/totalIncome)*100).toFixed(1)}%` : '0%'} savings rate</div>
+            <div className="stat-content">
+              <div className="stat-label">NET SAVINGS</div>
+              <div className="stat-value">₹{netSavings.toLocaleString()}</div>
+              <div className="stat-change positive">+8.6% efficiency</div>
+            </div>
           </div>
         </div>
 
@@ -446,42 +447,7 @@ function Dashboard({ user, onLogout }) {
         </div>
 
         <div className="bottom-grid">
-          <div className="transactions-section">
-            <div className="section-header">
-              <div>
-                <h2>Recent Transactions</h2>
-                <p className="section-subtitle">Last 6 transactions</p>
-              </div>
-              <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('transactions'); }} className="view-all">VIEW ALL</a>
-            </div>
-            <div className="transaction-list">
-              {loading ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
-              ) : transactions.length === 0 ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-                  No transactions yet. Go to Transactions page to add some.
-                </div>
-              ) : (
-                transactions.slice(0, 6).map(transaction => (
-                  <div key={transaction._id} className="transaction-item">
-                    <div className="transaction-icon">{getIcon(transaction.category)}</div>
-                    <div className="transaction-details">
-                      <div className="transaction-name">{transaction.description}</div>
-                      <div className="transaction-category">{transaction.category}</div>
-                    </div>
-                    <div className="transaction-date">
-                      {new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </div>
-                    <div className={`transaction-amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
-                      {transaction.type === 'income' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="right-sidebar-bottom">
+          <div className="budget-savings-row">
             <div className="budgeting-section">
               <div className="section-header">
                 <h2>Budgeting</h2>
@@ -535,6 +501,41 @@ function Dashboard({ user, onLogout }) {
                   <div className="goal-label">NEW CAR</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="transactions-section">
+            <div className="section-header">
+              <div>
+                <h2>Recent Transactions</h2>
+                <p className="section-subtitle">Last 6 transactions</p>
+              </div>
+              <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('transactions'); }} className="view-all">VIEW ALL</a>
+            </div>
+            <div className="transaction-list">
+              {loading ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
+              ) : transactions.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                  No transactions yet. Go to Transactions page to add some.
+                </div>
+              ) : (
+                transactions.slice(0, 6).map(transaction => (
+                  <div key={transaction._id} className="transaction-item">
+                    <div className="transaction-icon">{getIcon(transaction.category)}</div>
+                    <div className="transaction-details">
+                      <div className="transaction-name">{transaction.description}</div>
+                      <div className="transaction-category">{transaction.category}</div>
+                    </div>
+                    <div className="transaction-date">
+                      {new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    <div className={`transaction-amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
+                      {transaction.type === 'income' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

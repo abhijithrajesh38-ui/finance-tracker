@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Auth.css';
 import logo from '../../assets/images/Vector.svg';
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff, MdPerson } from 'react-icons/md';
 
-function Register({ onSwitchToLogin }) {
+function Register() {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +25,7 @@ function Register({ onSwitchToLogin }) {
       
       if (response.ok) {
         alert('Registration successful! Please login.');
-        onSwitchToLogin();
+        navigate('/login');
       } else {
         alert(data.message || 'Registration failed');
       }
@@ -83,11 +85,11 @@ function Register({ onSwitchToLogin }) {
             </button>
           </div>
 
-          <button type="submit" className="login-btn">Login</button>
+          <button type="submit" className="login-btn">Register</button>
         </form>
 
         <p className="register-link">
-          Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToLogin(); }}>Log in</a>
+          Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>Log in</a>
         </p>
       </div>
     </div>

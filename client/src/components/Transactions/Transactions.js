@@ -13,6 +13,8 @@ function Transactions({ userId, onTransactionChange }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -37,9 +39,10 @@ function Transactions({ userId, onTransactionChange }) {
     }
   };
 
-  const handleTransactionSuccess = () => {
+  const handleTransactionSuccess = (transactionData) => {
     fetchTransactions();
-    alert('Transaction added successfully!');
+    setSuccessMessage(`Transaction "${transactionData.description}" has been added successfully.`);
+    setShowSuccessModal(true);
   };
 
   const handleDeleteTransaction = async (id) => {
@@ -325,6 +328,22 @@ function Transactions({ userId, onTransactionChange }) {
           </button>
         </div>
       </div>
+
+      {showSuccessModal && (
+        <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
+          <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Transaction Created</h2>
+            <div className="success-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
+                <path d="M25 40L35 50L55 30" stroke="#1a1a1a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="success-message">{successMessage}</p>
+            <button className="done-btn" onClick={() => setShowSuccessModal(false)}>Done</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

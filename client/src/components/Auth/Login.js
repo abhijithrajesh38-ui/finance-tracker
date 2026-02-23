@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Auth.css';
 import logo from '../../assets/images/Vector.svg';
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 
-function Login({ onSwitchToRegister, onLoginSuccess }) {
+function Login({ onLoginSuccess }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +24,7 @@ function Login({ onSwitchToRegister, onLoginSuccess }) {
       
       if (response.ok) {
         onLoginSuccess(data.user);
+        navigate('/dashboard');
       } else {
         alert(data.message || 'Login failed');
       }
@@ -76,7 +79,7 @@ function Login({ onSwitchToRegister, onLoginSuccess }) {
         </form>
 
         <p className="register-link">
-          Don't Have An Account? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToRegister(); }}>Register here</a>
+          Don't Have An Account? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/register'); }}>Register here</a>
         </p>
       </div>
     </div>

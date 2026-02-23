@@ -68,19 +68,29 @@
 }
 
 .summary-card.green {
-  background: #d4f4dd;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
 }
 
 .summary-card.green:hover {
-  background: #c5eacd;
+  background: #d1f5dd;
+}
+
+.summary-card.green .summary-value {
+  color: #16A34A;
 }
 
 .summary-card.red {
-  background: #ffd4d4;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
 }
 
 .summary-card.red:hover {
-  background: #ffc5c5;
+  background: #fdd5d5;
+}
+
+.summary-card.red .summary-value {
+  color: #DC2626;
 }
 
 .summary-card.white {
@@ -360,5 +370,51 @@
 
 .delete-btn:hover {
   background: #ffc5c5;
+  transform: translateY(-2px);
+}
+
+.success-modal-content {
+  background: #fff;
+  padding: 50px 40px;
+  border-radius: 24px;
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+}
+
+.success-modal-content h2 {
+  font-size: 28px;
+  font-weight: 500;
+  margin-bottom: 30px;
+  color: #1a1a1a;
+}
+
+.success-icon {
+  margin: 20px 0 30px;
+  display: flex;
+  justify-content: center;
+}
+
+.success-message {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+.done-btn {
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 14px 50px;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.done-btn:hover {
+  background: #333;
   transform: translateY(-2px);
 }
