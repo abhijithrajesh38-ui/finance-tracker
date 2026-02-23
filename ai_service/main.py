@@ -40,6 +40,11 @@ def _is_finance_tracker_question(question: str) -> bool:
     if not q:
         return False
 
+    # Allow greetings - they should get a friendly response, not rejection
+    greetings = {"hi", "hello", "hey", "good morning", "good afternoon", "good evening", "greetings", "howdy"}
+    if q in greetings or any(g in q for g in greetings):
+        return True  # Treat as valid but will handle specially
+
     # Expanded finance keywords
     finance_keywords = {
         "transaction", "transactions", "income", "expense", "expenses",
@@ -53,7 +58,7 @@ def _is_finance_tracker_question(question: str) -> bool:
         "₹", "rupees", "inr", "rs", "how much", "where did",
     }
 
-    # Expanded unrelated keywords
+    # Quick reject for clearly unrelated topics
     unrelated_keywords = {
         "president", "prime minister", "cricket", "football", "movie",
         "actor", "actress", "country", "capital", "weather", "recipe",
@@ -122,6 +127,16 @@ def query(body: QueryRequest) -> dict[str, Any]:
     - Better context awareness
     - Comprehensive fallback system
     """
+    q = (body.question or "").strip().lower()
+    
+    # Handle greetings with friendly Finn introduction
+    greetings = {"hi", "hello", "hey", "good morning", "good afternoon", "good evening", "greetings", "howdy"}
+    if q in greetings or any(g in q for g in greetings):
+        return {
+            "answer": "Hello! I'm Finn, your personal finance assistant.  What would you like to know about your finances today?",
+            "source": "greeting"
+        }
+    
     if not _is_finance_tracker_question(body.question):
         return {
             "answer": "I can only answer questions about your finance tracker data (income, expenses, transactions, budgets, savings).",
