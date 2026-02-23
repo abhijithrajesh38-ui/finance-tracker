@@ -55,9 +55,8 @@ def insights(userId: str, days: int = 90) -> dict[str, Any]:
 @app.post("/query")
 def query(body: QueryRequest) -> dict[str, Any]:
     db = get_db()
-    since = datetime.utcnow() - timedelta(days=180)
-
-    context = build_insights(db=db, user_id=body.userId, since=since)
+    # Load ALL user data (no time limit) for comprehensive answers
+    context = build_insights(db=db, user_id=body.userId, since=None, load_all=True)
 
     try:
         text = answer_query(question=body.question, insights=context)

@@ -29,12 +29,17 @@ def _std(values: list[float]) -> float:
     return math.sqrt(var)
 
 
-def build_insights(db, user_id: str, since: datetime) -> dict[str, Any]:
+def build_insights(db, user_id: str, since: datetime | None = None, load_all: bool = False) -> dict[str, Any]:
     oid = _to_object_id(user_id)
+
+    # Build query filter - if load_all or since is None, get ALL transactions
+    query_filter = {"userId": oid}
+    if not load_all and since is not None:
+        query_filter["date"] = {"$gte": since}
 
     transactions = list(
         db["transactions"].find(
-            {"userId": oid, "date": {"$gte": since}},
+            query_filter,
             {"type": 1, "category": 1, "amount": 1, "description": 1, "date": 1},
         )
     )
@@ -53,15 +58,100 @@ def build_insights(db, user_id: str, since: datetime) -> dict[str, Any]:
     total_expenses = sum(float(t.get("amount") or 0) for t in expenses)
     net = total_income - total_expenses
 
+    # Calculate averages and statistics
+    expense_amounts = [float(t.get("amount") or 0) for t in expenses]
+    income_amounts = [float(t.get("amount") or 0) for t in income]
+    
+    avg_expense = _mean(expense_amounts) if expense_amounts else 0
+    avg_income = _mean(income_amounts) if income_amounts else 0
+    max_expense = max(expense_amounts) if expense_amounts else 0
+    min_expense = min(expense_amounts) if expense_amounts else 0
+    
+    # Get unique months for average calculations
+    unique_months = set()
+    for t in transactions:
+        date = t.get("date")
+        if date:
+            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+            unique_months.add(month_key)
+    
+    num_months = len(unique_months) if unique_months else 1
+    avg_monthly_expenses = total_expenses / num_months if num_months > 0 else 0
+    avg_monthly_income = total_income / num_months if num_months > 0 else 0
+
     by_category: dict[str, float] = defaultdict(float)
     for t in expenses:
         by_category[str(t.get("category") or "Uncategorized")] += float(t.get("amount") or 0)
+
+    # Aggregate spending by month
+    by_month: dict[str, float] = defaultdict(float)
+    for t in expenses:
+        date = t.get("date")
+        if date:
+            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+            by_month[month_key] += float(t.get("amount") or 0)
+
+    # Aggregate INCOME by month
+    income_by_month: dict[str, float] = defaultdict(float)
+    for t in income:
+        date = t.get("date")
+        if date:
+            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+            income_by_month[month_key] += float(t.get("amount") or 0)
+
+    # Calculate SAVINGS by month (income - expenses)
+    all_months = set(income_by_month.keys()) | set(by_month.keys())
+    savings_by_month: dict[str, float] = {}
+    for month_key in all_months:
+        inc = income_by_month.get(month_key, 0)
+        exp = by_month.get(month_key, 0)
+        savings_by_month[month_key] = inc - exp
+
+    # Sort months by savings (highest first)
+    top_savings_months = sorted(
+        [{"month": k, "savings": round(v, 2)} for k, v in savings_by_month.items()],
+        key=lambda x: x["savings"],
+        reverse=True,
+    )
+
+    # Aggregate spending by category AND month (for detailed queries)
+    by_category_month: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for t in expenses:
+        date = t.get("date")
+        category = str(t.get("category") or "Uncategorized")
+        if date:
+            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+            by_category_month[month_key][category] += float(t.get("amount") or 0)
+
+    # Convert to regular dict for JSON serialization
+    category_by_month: dict[str, list[dict]] = {}
+    for month_key, categories in by_category_month.items():
+        sorted_cats = sorted(
+            [{"category": k, "spent": round(v, 2)} for k, v in categories.items()],
+            key=lambda x: x["spent"],
+            reverse=True,
+        )
+        category_by_month[month_key] = sorted_cats
 
     top_categories = sorted(
         [{"category": k, "spent": round(v, 2)} for k, v in by_category.items()],
         key=lambda x: x["spent"],
         reverse=True,
-    )[:5]
+    )
+
+    # Sort months by spending for the response
+    top_months = sorted(
+        [{"month": k, "spent": round(v, 2)} for k, v in by_month.items()],
+        key=lambda x: x["spent"],
+        reverse=True,
+    )
+
+    # Sort months by income
+    top_income_months = sorted(
+        [{"month": k, "income": round(v, 2)} for k, v in income_by_month.items()],
+        key=lambda x: x["income"],
+        reverse=True,
+    )
 
     insights: list[dict[str, Any]] = []
 
@@ -151,13 +241,36 @@ def build_insights(db, user_id: str, since: datetime) -> dict[str, Any]:
 
     return {
         "summary": {
-            "since": since.isoformat(),
+            "since": since.isoformat() if since else "all-time",
             "transactions": len(transactions),
             "income": round(total_income, 2),
             "expenses": round(total_expenses, 2),
             "net": round(net, 2),
-            "topCategories": top_categories,
+            "savingsRate": round((net / total_income) * 100, 1) if total_income > 0 else 0,
+            "topCategories": top_categories[:5],
+            "allCategories": top_categories,
+            "topMonths": top_months,
+            "topIncomeMonths": top_income_months,
+            "topSavingsMonths": top_savings_months,
+            "categoryByMonth": category_by_month,
+            "incomeByMonth": dict(income_by_month),
+            "expenseByMonth": dict(by_month),
+            "statistics": {
+                "avgExpense": round(avg_expense, 2),
+                "avgIncome": round(avg_income, 2),
+                "maxExpense": round(max_expense, 2),
+                "minExpense": round(min_expense, 2),
+                "avgMonthlyExpenses": round(avg_monthly_expenses, 2),
+                "avgMonthlyIncome": round(avg_monthly_income, 2),
+                "numMonths": num_months,
+                "totalTransactions": len(transactions),
+                "incomeTransactions": len(income),
+                "expenseTransactions": len(expenses),
+            },
         },
         "insights": insights,
-        "raw": {"budgetsCount": len(budgets)},
+        "raw": {
+            "budgetsCount": len(budgets),
+            "allBudgets": budgets,
+        },
     }
