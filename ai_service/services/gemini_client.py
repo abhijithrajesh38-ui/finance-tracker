@@ -46,6 +46,7 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
     top_income_months = summary.get("topIncomeMonths", [])
     top_savings_months = summary.get("topSavingsMonths", [])
     category_by_month = summary.get("categoryByMonth", {})
+    raw = insights.get("raw", {})
     
     alerts = []
     for item in insights.get("insights", []):
@@ -60,6 +61,7 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
             "netSavings": summary.get("net", 0),
             "savingsRate": summary.get("savingsRate", 0),
             "timeframe": summary.get("since", "all-time"),
+            "referenceDate": summary.get("referenceDate"),
         },
         "statistics": {
             "totalTransactions": stats.get("totalTransactions", 0),
@@ -78,6 +80,18 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
         "monthlyIncome": top_income_months[:12],
         "monthlySavings": top_savings_months[:12],
         "categoryByMonth": category_by_month,  # Detailed month-by-month breakdown
+        "dailyTotals": {
+            "incomeByDay": dict(list((summary.get("incomeByDay", {}) or {}).items())[-31:]),
+            "expenseByDay": dict(list((summary.get("expenseByDay", {}) or {}).items())[-31:]),
+        },
+        "weeklyTotals": {
+            "incomeByWeek": summary.get("incomeByWeek", {}),
+            "expenseByWeek": summary.get("expenseByWeek", {}),
+        },
+        "collections": {
+            "recentTransactions": (raw.get("recentTransactions") or [])[:50],
+            "budgets": (raw.get("allBudgets") or [])[:50],
+        },
         "alerts": alerts,
     }
 

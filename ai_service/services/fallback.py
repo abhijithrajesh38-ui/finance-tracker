@@ -15,6 +15,11 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
     top_months = summary.get("topMonths", [])
     category_by_month = summary.get("categoryByMonth", {})
     all_cats = summary.get("allCategories", [])
+    expense_by_day = summary.get("expenseByDay", {})
+    income_by_day = summary.get("incomeByDay", {})
+    expense_by_week = summary.get("expenseByWeek", {})
+    income_by_week = summary.get("incomeByWeek", {})
+    reference_date = summary.get("referenceDate")
 
     # Extract last mentioned month from conversation history for follow-ups
     last_month = None
@@ -35,6 +40,137 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
             return f"₹{float(x):.2f}"
         except Exception:  # noqa: BLE001
             return f"₹{x}"
+
+    def _sum_days(day_keys: list[str]) -> tuple[float, float]:
+        exp = 0.0
+        inc = 0.0
+        for dk in day_keys:
+            try:
+                exp += float(expense_by_day.get(dk, 0) or 0)
+            except Exception:
+                pass
+            try:
+                inc += float(income_by_day.get(dk, 0) or 0)
+            except Exception:
+                pass
+        return exp, inc
+
+    def _get_anchor_today():
+        from datetime import datetime
+
+        if reference_date:
+            try:
+                # referenceDate is stored as ISO string
+                return datetime.fromisoformat(str(reference_date)[:19]).date()
+            except Exception:
+                pass
+        return datetime.utcnow().date()
+
+    # Handle day/week specific questions
+    if ("week" in q or "day" in q or "today" in q or "yesterday" in q or "last" in q) and (
+        "spend" in q or "spent" in q or "expense" in q or "expenses" in q or "income" in q or "earned" in q
+    ):
+        import re
+        from datetime import datetime, timedelta
+
+        # Specific date: YYYY-MM-DD
+        date_match = re.search(r"\b(20\d\d-\d\d-\d\d)\b", q)
+        if date_match:
+            dk = date_match.group(1)
+            exp = float(expense_by_day.get(dk, 0) or 0)
+            inc = float(income_by_day.get(dk, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income on {dk} was {fmt_money(inc)}."
+            if "spend" in q or "spent" in q or "expense" in q:
+                return f"Your spending on {dk} was {fmt_money(exp)}."
+            return f"On {dk}: Income {fmt_money(inc)}, Expenses {fmt_money(exp)}, Net {fmt_money(inc - exp)}."
+
+        # Today / yesterday (anchored to latest transaction date when available)
+        today = _get_anchor_today()
+        if "today" in q:
+            dk = today.strftime("%Y-%m-%d")
+            exp = float(expense_by_day.get(dk, 0) or 0)
+            inc = float(income_by_day.get(dk, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income today ({dk}) is {fmt_money(inc)}."
+            return f"Your spending today ({dk}) is {fmt_money(exp)}."
+
+        if "yesterday" in q:
+            dk = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+            exp = float(expense_by_day.get(dk, 0) or 0)
+            inc = float(income_by_day.get(dk, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income yesterday ({dk}) was {fmt_money(inc)}."
+            return f"Your spending yesterday ({dk}) was {fmt_money(exp)}."
+
+        # Last N days
+        n_days_match = re.search(r"\blast\s+(\d{1,3})\s+days\b", q)
+        if n_days_match:
+            n = int(n_days_match.group(1))
+            if n <= 0:
+                n = 1
+            if n > 365:
+                n = 365
+            days = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(n)]
+            exp, inc = _sum_days(days)
+            if "income" in q or "earned" in q:
+                return f"Your total income in the last {n} days is {fmt_money(inc)}."
+            return f"Your total spending in the last {n} days is {fmt_money(exp)}."
+
+        # Last week (previous ISO week)
+        if "last week" in q:
+            iso_year, iso_week, _ = today.isocalendar()
+            prev_week = iso_week - 1
+            prev_year = iso_year
+            if prev_week <= 0:
+                prev_year = iso_year - 1
+                prev_week = 52
+            wk = f"{prev_year}-W{prev_week:02d}"
+            exp = float(expense_by_week.get(wk, 0) or 0)
+            inc = float(income_by_week.get(wk, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income in last week ({wk}) was {fmt_money(inc)}."
+            return f"Your spending in last week ({wk}) was {fmt_money(exp)}."
+
+        # This week (current ISO week)
+        if "this week" in q:
+            iso_year, iso_week, _ = today.isocalendar()
+            wk = f"{iso_year}-W{iso_week:02d}"
+            exp = float(expense_by_week.get(wk, 0) or 0)
+            inc = float(income_by_week.get(wk, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income in this week ({wk}) is {fmt_money(inc)}."
+            return f"Your spending in this week ({wk}) is {fmt_money(exp)}."
+
+        # This month (anchored)
+        if "this month" in q:
+            month_key = today.strftime("%Y-%m")
+            exp = float(summary.get("expenseByMonth", {}).get(month_key, 0) or 0)
+            inc = float(summary.get("incomeByMonth", {}).get(month_key, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income in {month_key} is {fmt_money(inc)}."
+            return f"Your spending in {month_key} is {fmt_money(exp)}."
+
+        # This year (sum months in the year)
+        if "this year" in q:
+            year_prefix = today.strftime("%Y-")
+            exp = 0.0
+            inc = 0.0
+            for k, v in (summary.get("expenseByMonth", {}) or {}).items():
+                if str(k).startswith(year_prefix):
+                    try:
+                        exp += float(v or 0)
+                    except Exception:
+                        pass
+            for k, v in (summary.get("incomeByMonth", {}) or {}).items():
+                if str(k).startswith(year_prefix):
+                    try:
+                        inc += float(v or 0)
+                    except Exception:
+                        pass
+            if "income" in q or "earned" in q:
+                return f"Your income in {today.year} is {fmt_money(inc)}."
+            return f"Your spending in {today.year} is {fmt_money(exp)}."
 
     # Helper to extract month from question
     def extract_month_from_question(q: str) -> str | None:

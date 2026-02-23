@@ -80,6 +80,14 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             {"type": 1, "category": 1, "amount": 1, "description": 1, "date": 1},
         )
     )
+
+    # Use latest transaction date as a stable reference for relative time questions
+    latest_tx_date: datetime | None = None
+    for t in transactions:
+        d = t.get("date")
+        if hasattr(d, "strftime"):
+            if latest_tx_date is None or d > latest_tx_date:
+                latest_tx_date = d
     
     # Convert ObjectIds to strings for JSON serialization
     for transaction in transactions:
@@ -142,6 +150,27 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
             by_month[month_key] += float(t.get("amount") or 0)
 
+    # Aggregate EXPENSES by day and by ISO week
+    expense_by_day: dict[str, float] = defaultdict(float)
+    expense_by_week: dict[str, float] = defaultdict(float)
+    for t in expenses:
+        date = t.get("date")
+        if not date:
+            continue
+
+        if hasattr(date, "strftime"):
+            day_key = date.strftime("%Y-%m-%d")
+            iso_year, iso_week, _ = date.isocalendar()
+            week_key = f"{iso_year}-W{iso_week:02d}"
+        else:
+            # Fallback if date is already string
+            date_str = str(date)
+            day_key = date_str[:10]
+            week_key = day_key[:7]
+
+        expense_by_day[day_key] += float(t.get("amount") or 0)
+        expense_by_week[week_key] += float(t.get("amount") or 0)
+
     # Aggregate INCOME by month
     income_by_month: dict[str, float] = defaultdict(float)
     for t in income:
@@ -149,6 +178,26 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         if date:
             month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
             income_by_month[month_key] += float(t.get("amount") or 0)
+
+    # Aggregate INCOME by day and by ISO week
+    income_by_day: dict[str, float] = defaultdict(float)
+    income_by_week: dict[str, float] = defaultdict(float)
+    for t in income:
+        date = t.get("date")
+        if not date:
+            continue
+
+        if hasattr(date, "strftime"):
+            day_key = date.strftime("%Y-%m-%d")
+            iso_year, iso_week, _ = date.isocalendar()
+            week_key = f"{iso_year}-W{iso_week:02d}"
+        else:
+            date_str = str(date)
+            day_key = date_str[:10]
+            week_key = day_key[:7]
+
+        income_by_day[day_key] += float(t.get("amount") or 0)
+        income_by_week[week_key] += float(t.get("amount") or 0)
 
     # Calculate SAVINGS by month (income - expenses)
     all_months = set(income_by_month.keys()) | set(by_month.keys())
@@ -325,6 +374,7 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     return {
         "summary": {
             "since": since.isoformat() if since else "all-time",
+            "referenceDate": latest_tx_date.isoformat() if latest_tx_date else None,
             "transactions": len(transactions),
             "income": round(total_income, 2),
             "expenses": round(total_expenses, 2),
@@ -338,6 +388,10 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             "categoryByMonth": category_by_month,
             "incomeByMonth": dict(income_by_month),
             "expenseByMonth": dict(by_month),
+            "incomeByDay": dict(income_by_day),
+            "expenseByDay": dict(expense_by_day),
+            "incomeByWeek": dict(income_by_week),
+            "expenseByWeek": dict(expense_by_week),
             "statistics": {
                 "avgExpense": round(avg_expense, 2),
                 "avgIncome": round(avg_income, 2),
@@ -364,5 +418,20 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         "raw": {
             "budgetsCount": len(budgets),
             "allBudgets": budgets,
+            "recentTransactions": sorted(
+                [
+                    {
+                        "id": t.get("_id"),
+                        "type": t.get("type"),
+                        "category": t.get("category"),
+                        "amount": float(t.get("amount") or 0),
+                        "description": t.get("description"),
+                        "date": t.get("date").isoformat() if hasattr(t.get("date"), "isoformat") else (str(t.get("date")) if t.get("date") else None),
+                    }
+                    for t in transactions
+                ],
+                key=lambda x: x.get("date") or "",
+                reverse=True,
+            )[:50],
         },
     }
