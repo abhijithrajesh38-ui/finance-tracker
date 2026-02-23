@@ -81,7 +81,7 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
           paymentMethod: 'cash',
           recurring: false
         });
-        onSuccess();
+        onSuccess(formData);
         onClose();
       } else {
         setError(data.message || 'Failed to create transaction');
@@ -104,8 +104,7 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add Transaction</h2>
-          <button className="close-btn" onClick={handleClose}>×</button>
+          <h2>Add transaction</h2>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -113,37 +112,21 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Type *</label>
+              <label>Type</label>
               <select name="type" value={formData.type} onChange={handleChange} required>
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
+                <option value="income">In</option>
+                <option value="expense">Out</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label>Amount *</label>
-              <input
-                type="number"
-                name="amount"
-                value={formData.amount}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0.01"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Category *</label>
+              <label>Category</label>
               <input
                 type="text"
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                placeholder="e.g., Food, Salary"
+                placeholder="e.g. food and dining"
                 list="categories"
                 required
               />
@@ -153,9 +136,11 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
                 ))}
               </datalist>
             </div>
+          </div>
 
+          <div className="form-row">
             <div className="form-group">
-              <label>Date *</label>
+              <label>Date</label>
               <input
                 type="date"
                 name="date"
@@ -164,40 +149,43 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
                 required
               />
             </div>
+
+            <div className="form-group">
+              <label>Payment method</label>
+              <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange}>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="upi">UPI</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Description *</label>
+          <div className="form-group full-width">
+            <label>Amount</label>
             <input
-              type="text"
-              name="description"
-              value={formData.description}
+              type="number"
+              name="amount"
+              value={formData.amount}
               onChange={handleChange}
-              placeholder="Brief description"
+              placeholder="0.00"
+              step="0.01"
+              min="0.01"
               required
             />
           </div>
 
-          <div className="form-group">
-            <label>Payment Method</label>
-            <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange}>
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="bank">Bank Transfer</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                name="recurring"
-                checked={formData.recurring}
-                onChange={handleChange}
-              />
-              Recurring transaction
-            </label>
+          <div className="form-group full-width">
+            <label>Note</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="Add a note..."
+              rows="4"
+              required
+            />
           </div>
 
           <div className="modal-footer">
@@ -205,7 +193,7 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
               Cancel
             </button>
             <button type="submit" className="btn-submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Add Transaction'}
+              {loading ? 'Adding...' : 'Add'}
             </button>
           </div>
         </form>

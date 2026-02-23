@@ -5,6 +5,7 @@ import Transactions from '../Transactions/Transactions';
 import Budget from '../Budget/Budget';
 import Finn from '../Finn/Finn';
 import Report from '../Report/Report';
+import Compare from '../Compare/Compare';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
   MdNotifications, MdPerson, MdWarning, MdTv, MdRestaurant,
@@ -12,10 +13,12 @@ import {
   MdCreditCard, MdDelete
 } from 'react-icons/md';
 
-function Dashboard({ user }) {
+function Dashboard({ user, onLogout }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiInsights, setAiInsights] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
   const [chartFilter, setChartFilter] = useState('Month');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,8 +34,29 @@ function Dashboard({ user }) {
       fetchTransactions();
       fetchBudgetAlerts();
       fetchBudgets();
+      fetchAiInsights();
+      // Check if notifications were previously read
+      const notifReadKey = `notifications_read_${user.id}`;
+      const wasRead = localStorage.getItem(notifReadKey);
+      if (wasRead === 'true') {
+        setHasUnreadNotifications(false);
+      }
     }
   }, [user]);
+
+  const fetchAiInsights = async () => {
+    try {
+      setAiLoading(true);
+      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`);
+      const data = await response.json();
+      setAiInsights(Array.isArray(data.insights) ? data.insights : []);
+    } catch (error) {
+      console.error('Error fetching AI insights:', error);
+      setAiInsights([]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -54,10 +78,32 @@ function Dashboard({ user }) {
       const response = await fetch(`http://localhost:5000/api/budgets/alerts?userId=${user.id}`);
       const data = await response.json();
       console.log('Budget alerts:', data);
+      
+      // Check if alerts have changed (new alerts appeared)
+      const alertsKey = `last_alerts_${user.id}`;
+      const lastAlertsStr = localStorage.getItem(alertsKey);
+      const lastAlerts = lastAlertsStr ? JSON.parse(lastAlertsStr) : [];
+      
+      // Compare alert counts or content
+      const hasNewAlerts = data.length > lastAlerts.length;
+      
       setBudgetAlerts(data);
-      // Check if there are new alerts
-      if (data.length > 0) {
+      
+      // Store current alerts
+      localStorage.setItem(alertsKey, JSON.stringify(data));
+      
+      // If there are new alerts, reset the read state
+      if (hasNewAlerts && data.length > 0) {
+        const notifReadKey = `notifications_read_${user.id}`;
+        localStorage.removeItem(notifReadKey);
         setHasUnreadNotifications(true);
+      } else {
+        // Check if notifications were previously read
+        const notifReadKey = `notifications_read_${user.id}`;
+        const wasRead = localStorage.getItem(notifReadKey);
+        if (data.length > 0 && wasRead !== 'true') {
+          setHasUnreadNotifications(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching budget alerts:', error);
@@ -113,7 +159,7 @@ function Dashboard({ user }) {
 
   const filteredTransactions = getFilteredTransactions();
 
-  // Calculate totals
+  // Calculate totals for current period
   const totalIncome = filteredTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -124,6 +170,82 @@ function Dashboard({ user }) {
   
   const totalBalance = totalIncome - totalExpenses;
   const netSavings = totalIncome - totalExpenses;
+
+  // Calculate last period's totals for comparison based on current filter
+  const getLastPeriodData = () => {
+    const now = new Date();
+    let lastPeriodTransactions = [];
+    
+    if (chartFilter === 'Week') {
+      // Compare with last week
+      const currentDay = now.getDay();
+      const lastWeekStart = new Date(now);
+      lastWeekStart.setDate(now.getDate() - currentDay - 7);
+      lastWeekStart.setHours(0, 0, 0, 0);
+      
+      const lastWeekEnd = new Date(lastWeekStart);
+      lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+      lastWeekEnd.setHours(23, 59, 59, 999);
+      
+      lastPeriodTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate >= lastWeekStart && tDate <= lastWeekEnd;
+      });
+    } else if (chartFilter === 'Month') {
+      // Compare with last month
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      
+      lastPeriodTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate >= lastMonth && tDate <= lastMonthEnd;
+      });
+    } else if (chartFilter === 'Year') {
+      // Compare with last year
+      const lastYear = now.getFullYear() - 1;
+      
+      lastPeriodTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate.getFullYear() === lastYear;
+      });
+    }
+    
+    const lastPeriodIncome = lastPeriodTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const lastPeriodExpenses = lastPeriodTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const lastPeriodBalance = lastPeriodIncome - lastPeriodExpenses;
+    const lastPeriodSavings = lastPeriodIncome - lastPeriodExpenses;
+    
+    return { lastPeriodIncome, lastPeriodExpenses, lastPeriodBalance, lastPeriodSavings };
+  };
+
+  const { lastPeriodIncome, lastPeriodExpenses, lastPeriodBalance, lastPeriodSavings } = getLastPeriodData();
+
+  // Calculate percentage changes
+  const calculateChange = (current, previous) => {
+    // If no previous data exists, show 0%
+    if (previous === 0 && current === 0) return 0;
+    if (previous === 0) return 0; // Show 0% when no previous data to compare
+    return ((current - previous) / previous * 100).toFixed(1);
+  };
+
+  const balanceChange = calculateChange(totalBalance, lastPeriodBalance);
+  const incomeChange = calculateChange(totalIncome, lastPeriodIncome);
+  const expensesChange = calculateChange(totalExpenses, lastPeriodExpenses);
+  const savingsChange = calculateChange(netSavings, lastPeriodSavings);
+
+  // Get period label for stat cards
+  const getPeriodLabel = () => {
+    if (chartFilter === 'Week') return 'from last week';
+    if (chartFilter === 'Month') return 'from last month';
+    if (chartFilter === 'Year') return 'from last year';
+    return 'from last month';
+  };
 
   // Calculate chart data based on filter
   const getChartData = () => {
@@ -195,9 +317,11 @@ function Dashboard({ user }) {
 
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
-    // Mark as read when opened
+    // Mark as read when opened and persist to localStorage
     if (!showNotifications) {
       setHasUnreadNotifications(false);
+      const notifReadKey = `notifications_read_${user.id}`;
+      localStorage.setItem(notifReadKey, 'true');
     }
   };
 
@@ -213,6 +337,17 @@ function Dashboard({ user }) {
       'Health': <MdLocalHospital />
     };
     return icons[category] || <MdCreditCard />;
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      return 'Good morning';
+    } else if (hour < 18) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
   };
 
   if (currentPage === 'transactions') {
@@ -248,6 +383,17 @@ function Dashboard({ user }) {
     );
   }
 
+  if (currentPage === 'compare') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="compare" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Compare userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
   if (currentPage === 'finn') {
     return (
       <div className="dashboard">
@@ -264,17 +410,10 @@ function Dashboard({ user }) {
       <main className="main-content">
         <header className="top-bar">
           <div>
-            <div className="date">FEBRUARY 2026</div>
-            <h1>Good morning, <span className="username">{user.fullName}</span></h1>
+            <div className="date">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
+            <h1>{getGreeting()}, <span className="username">{user.fullName}</span></h1>
           </div>
           <div className="header-actions">
-            <input 
-              type="text" 
-              placeholder="Search Insights..." 
-              className="search-box"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
             <div className="notification-container">
               <button className="icon-btn" onClick={handleNotificationClick}>
                 <MdNotifications />
@@ -312,7 +451,7 @@ function Dashboard({ user }) {
                     <div className="account-email">{user.email}</div>
                   </div>
                   <div className="dropdown-divider"></div>
-                  <button className="dropdown-item" onClick={() => window.location.reload()}>
+                  <button className="dropdown-item" onClick={onLogout}>
                     🚪 Logout
                   </button>
                 </div>
@@ -324,27 +463,51 @@ function Dashboard({ user }) {
         <div className="stats-grid">
           <div className="stat-card dark">
             <div className="stat-icon"><MdAccountBalance /></div>
-            <div className="stat-label">Total Balance</div>
-            <div className="stat-value">₹{totalBalance.toLocaleString()}</div>
-            <div className="stat-change positive">Current balance</div>
+            <div className="stat-content">
+              <div className="stat-label">TOTAL BALANCE</div>
+              <div className="stat-value">₹{totalBalance.toLocaleString()}</div>
+              {lastPeriodBalance !== 0 && (
+                <div className={`stat-change ${balanceChange >= 0 ? 'positive' : 'negative'}`}>
+                  {balanceChange >= 0 ? '+' : ''}{balanceChange}% {getPeriodLabel()}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card light">
             <div className="stat-icon"><MdTrendingDown /></div>
-            <div className="stat-label">Total Income</div>
-            <div className="stat-value">₹{totalIncome.toLocaleString()}</div>
-            <div className="stat-change positive">{transactions.filter(t => t.type === 'income').length} transactions</div>
+            <div className="stat-content">
+              <div className="stat-label">TOTAL INCOME</div>
+              <div className="stat-value">₹{totalIncome.toLocaleString()}</div>
+              {lastPeriodIncome !== 0 && (
+                <div className={`stat-change ${incomeChange >= 0 ? 'positive' : 'negative'}`}>
+                  {incomeChange >= 0 ? '+' : ''}{incomeChange}% {getPeriodLabel()}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="stat-card beige">
+          <div className="stat-card light">
             <div className="stat-icon"><MdTrendingUp /></div>
-            <div className="stat-label">Total Expenses</div>
-            <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
-            <div className="stat-change negative">{transactions.filter(t => t.type === 'expense').length} transactions</div>
+            <div className="stat-content">
+              <div className="stat-label">TOTAL EXPENSES</div>
+              <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
+              {lastPeriodExpenses !== 0 && (
+                <div className={`stat-change ${expensesChange >= 0 ? 'negative' : 'positive'}`}>
+                  {expensesChange >= 0 ? '+' : ''}{expensesChange}% {getPeriodLabel()}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card light">
             <div className="stat-icon"><MdSavings /></div>
-            <div className="stat-label">Net Savings</div>
-            <div className="stat-value">₹{netSavings.toLocaleString()}</div>
-            <div className="stat-change positive">{totalIncome > 0 ? `${((netSavings/totalIncome)*100).toFixed(1)}%` : '0%'} savings rate</div>
+            <div className="stat-content">
+              <div className="stat-label">NET SAVINGS</div>
+              <div className="stat-value">₹{netSavings.toLocaleString()}</div>
+              {(lastPeriodIncome !== 0 || lastPeriodExpenses !== 0) && (
+                <div className={`stat-change ${savingsChange >= 0 ? 'positive' : 'negative'}`}>
+                  {savingsChange >= 0 ? '+' : ''}{savingsChange}% {getPeriodLabel()}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -371,8 +534,20 @@ function Dashboard({ user }) {
                   {chartData.map((data, index) => (
                     <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                       <div className="bar-group">
-                        <div className="bar income" style={{height: `${(data.income / maxAmount) * 350}px`}}></div>
-                        <div className="bar expense" style={{height: `${(data.expense / maxAmount) * 350}px`}}></div>
+                        <div 
+                          className="bar income" 
+                          style={{height: `${(data.income / maxAmount) * 350}px`}}
+                          title={`Income: ₹${data.income.toLocaleString()}`}
+                        >
+                          <div className="bar-tooltip">₹{data.income.toLocaleString()}</div>
+                        </div>
+                        <div 
+                          className="bar expense" 
+                          style={{height: `${(data.expense / maxAmount) * 350}px`}}
+                          title={`Expenses: ₹${data.expense.toLocaleString()}`}
+                        >
+                          <div className="bar-tooltip">₹{data.expense.toLocaleString()}</div>
+                        </div>
                       </div>
                       <div className="bar-label">{data.label}</div>
                     </div>
@@ -387,82 +562,37 @@ function Dashboard({ user }) {
               <div className="section-header">
                 <h2>AI Insights</h2>
               </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">OPTIMIZED</span>
-                  <span className="insight-icon">🔗</span>
+              {aiLoading ? (
+                <div className="insight-item">
+                  <div className="insight-text">Loading insights...</div>
                 </div>
-                <div className="insight-text">Subscription optimization: Cancel unused 'Adobe Creative' to save $52/mo.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">ALERT</span>
-                  <span className="insight-icon">⚠️</span>
+              ) : aiInsights.length === 0 ? (
+                <div className="insight-item">
+                  <div className="insight-text">No AI insights yet. Add more transactions and budgets to see analysis.</div>
                 </div>
-                <div className="insight-text">Tax deadline approaching in 14 days. Prepare your W2 forms.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">MARKET</span>
-                  <span className="insight-icon">📈</span>
-                </div>
-                <div className="insight-text">New ETF opportunity matches your risk profile. 6.2% expected yield.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">UTILITY</span>
-                  <span className="insight-icon">💡</span>
-                </div>
-                <div className="insight-text">Energy bill is 19% higher than local average. Review peak usage.</div>
-              </div>
-              <div className="insight-item">
-                <div className="insight-header">
-                  <span className="insight-date">SAVINGS</span>
-                  <span className="insight-icon">🎯</span>
-                </div>
-                <div className="insight-text">You reached your milestone for 'Vacation Fund'. Book now for best rates.</div>
-              </div>
+              ) : (
+                aiInsights
+                  .slice(0, 5)
+                  .sort((a, b) => {
+                    if (a.type === 'monthly_summary') return -1;
+                    if (b.type === 'monthly_summary') return 1;
+                    return 0;
+                  })
+                  .map((item, index) => (
+                    <div key={index} className="insight-item">
+                      <div className="insight-content">
+                        <div className="insight-title">{item.title || 'AI Insight'}</div>
+                        <div className="insight-description">{item.text}</div>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         </div>
 
         <div className="bottom-grid">
-          <div className="transactions-section">
-            <div className="section-header">
-              <div>
-                <h2>Recent Transactions</h2>
-                <p className="section-subtitle">Last 6 transactions</p>
-              </div>
-              <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('transactions'); }} className="view-all">VIEW ALL</a>
-            </div>
-            <div className="transaction-list">
-              {loading ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
-              ) : transactions.length === 0 ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-                  No transactions yet. Go to Transactions page to add some.
-                </div>
-              ) : (
-                transactions.slice(0, 6).map(transaction => (
-                  <div key={transaction._id} className="transaction-item">
-                    <div className="transaction-icon">{getIcon(transaction.category)}</div>
-                    <div className="transaction-details">
-                      <div className="transaction-name">{transaction.description}</div>
-                      <div className="transaction-category">{transaction.category}</div>
-                    </div>
-                    <div className="transaction-date">
-                      {new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </div>
-                    <div className={`transaction-amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
-                      {transaction.type === 'income' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="right-sidebar-bottom">
+          <div className="budget-savings-row">
             <div className="budgeting-section">
               <div className="section-header">
                 <h2>Budgeting</h2>
@@ -516,6 +646,41 @@ function Dashboard({ user }) {
                   <div className="goal-label">NEW CAR</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="transactions-section">
+            <div className="section-header">
+              <div>
+                <h2>Recent Transactions</h2>
+                <p className="section-subtitle">Last 6 transactions</p>
+              </div>
+              <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('transactions'); }} className="view-all">VIEW ALL</a>
+            </div>
+            <div className="transaction-list">
+              {loading ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
+              ) : transactions.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                  No transactions yet. Go to Transactions page to add some.
+                </div>
+              ) : (
+                transactions.slice(0, 6).map(transaction => (
+                  <div key={transaction._id} className="transaction-item">
+                    <div className="transaction-icon">{getIcon(transaction.category)}</div>
+                    <div className="transaction-details">
+                      <div className="transaction-name">{transaction.description}</div>
+                      <div className="transaction-category">{transaction.category}</div>
+                    </div>
+                    <div className="transaction-date">
+                      {new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    <div className={`transaction-amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
+                      {transaction.type === 'income' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

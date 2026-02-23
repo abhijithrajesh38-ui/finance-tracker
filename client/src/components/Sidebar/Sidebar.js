@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import './Sidebar.css';
-import { MdDashboard, MdAttachMoney, MdAccountBalanceWallet, MdEco, MdDescription } from 'react-icons/md';
+import logo from '../../assets/images/Vector.svg';
+import whitefin from '../../assets/images/whitefin.svg';
+import { MdDashboard, MdAttachMoney, MdAccountBalanceWallet, MdEco, MdDescription, MdCompareArrows } from 'react-icons/md';
 
 function Sidebar({ currentPage, onNavigate }) {
   return (
     <aside className="sidebar">
-      <div className="logo">fb</div>
+      <img src={logo} alt="Logo" className="logo-img" />
       <nav>
         <div 
           className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
@@ -31,12 +32,18 @@ function Sidebar({ currentPage, onNavigate }) {
         >
           <span><MdDescription /></span> Report
         </div>
+        <div 
+          className={`nav-item ${currentPage === 'compare' ? 'active' : ''}`}
+          onClick={() => onNavigate('compare')}
+        >
+          <span><MdCompareArrows /></span> Compare
+        </div>
         <div className="nav-separator"></div>
         <div 
           className={`nav-item ${currentPage === 'finn' ? 'active' : ''}`}
           onClick={() => onNavigate('finn')}
         >
-          <span><MdEco /></span> Finn
+          <span><img src={whitefin} alt="Finn" className="finn-nav-icon" /></span> Finn
         </div>
       </nav>
     </aside>

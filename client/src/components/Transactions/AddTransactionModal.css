@@ -13,55 +13,34 @@
 
 .modal-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 24px;
   width: 90%;
-  max-width: 600px;
+  max-width: 700px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 32px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 40px 40px 32px 40px;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 24px;
-  color: #1a1a1a;
-}
-
-.close-btn {
-  background: none;
-  border: none;
   font-size: 32px;
-  color: #666;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.close-btn:hover {
   color: #1a1a1a;
+  font-weight: 600;
 }
 
 .modal-content form {
-  padding: 32px;
+  padding: 0 40px 40px 40px;
 }
 
 .error-message {
   background: #fee;
   color: #c33;
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-bottom: 20px;
   font-size: 14px;
 }
@@ -69,8 +48,8 @@
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 24px;
+  margin-bottom: 24px;
 }
 
 .form-group {
@@ -78,84 +57,107 @@
   flex-direction: column;
 }
 
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
 .form-group label {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
-  color: #333;
-  margin-bottom: 8px;
+  color: #666;
+  margin-bottom: 12px;
 }
 
 .form-group input,
-.form-group select {
-  padding: 12px 16px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
+.form-group select,
+.form-group textarea {
+  padding: 18px 24px;
+  border: 2px solid #d0d0d0;
+  border-radius: 50px;
+  font-size: 15px;
   font-family: inherit;
+  background: #fafafa;
+  color: #1a1a1a;
+  transition: all 0.2s;
+}
+
+.form-group textarea {
+  border-radius: 24px;
+  resize: vertical;
+  min-height: 140px;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
-  border-color: #1a1a1a;
+  border-color: #999;
+  background: white;
 }
 
-.checkbox-group {
-  margin-bottom: 20px;
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #999;
 }
 
-.checkbox-group label {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  color: #333;
+.form-group select {
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 24px center;
+  padding-right: 48px;
 }
 
-.checkbox-group input[type="checkbox"] {
-  margin-right: 8px;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
+.form-group input[type="date"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 24px center;
+  padding-right: 48px;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding-top: 24px;
-  border-top: 1px solid #e0e0e0;
+  gap: 16px;
+  padding-top: 32px;
 }
 
 .btn-cancel,
 .btn-submit {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 16px 48px;
+  border-radius: 50px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  border: none;
+  border: 2px solid transparent;
+  transition: all 0.2s;
 }
 
 .btn-cancel {
-  background: #f5f5f5;
-  color: #666;
+  background: white;
+  color: #1a1a1a;
+  border-color: #d0d0d0;
 }
 
 .btn-cancel:hover {
-  background: #e0e0e0;
+  background: #f5f5f5;
+  border-color: #999;
 }
 
 .btn-submit {
   background: #1a1a1a;
   color: white;
+  border-color: #1a1a1a;
 }
 
 .btn-submit:hover {
   background: #333;
+  border-color: #333;
 }
 
 .btn-submit:disabled {
   background: #ccc;
+  border-color: #ccc;
   cursor: not-allowed;
 }

@@ -6,7 +6,15 @@ function Budget({ userId }) {
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [successTitle, setSuccessTitle] = useState('');
   const [editingBudget, setEditingBudget] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 4;
   const [formData, setFormData] = useState({
     category: '',
     limit: '',
@@ -72,7 +80,20 @@ function Budget({ userId }) {
       
       if (response.ok) {
         setShowModal(false);
+        
+        // Show success modal for both create and edit
+        const categoryName = formData.category;
+        if (editingBudget) {
+          setSuccessTitle('Budget Updated');
+          setSuccessMessage(`Your changes to "${categoryName}" have been saved successfully.`);
+        } else {
+          setSuccessTitle('Budget Created');
+          setSuccessMessage(`Budget for "${categoryName}" has been created successfully.`);
+        }
+        setShowSuccessModal(true);
+        
         setEditingBudget(null);
+        setHasChanges(false);
         setFormData({
           category: '',
           limit: '',
@@ -99,7 +120,41 @@ function Budget({ userId }) {
       year: budget.year,
       alertAt: budget.alertAt
     });
+    setHasChanges(false);
     setShowModal(true);
+  };
+
+  const handleFormChange = (field, value) => {
+    setFormData({...formData, [field]: value});
+    setHasChanges(true);
+  };
+
+  const handleCloseModal = () => {
+    if (editingBudget && hasChanges) {
+      setShowDiscardModal(true);
+    } else {
+      setShowModal(false);
+      setEditingBudget(null);
+      setHasChanges(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    setShowDiscardModal(false);
+    setShowModal(false);
+    setEditingBudget(null);
+    setHasChanges(false);
+    setFormData({
+      category: '',
+      limit: '',
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+      alertAt: 80
+    });
+  };
+
+  const handleContinueEditing = () => {
+    setShowDiscardModal(false);
   };
 
   const handleDelete = async (id) => {
@@ -117,6 +172,29 @@ function Budget({ userId }) {
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
   const remaining = totalBudget - totalSpent;
   const overallPercentage = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+
+  // Filter budgets by search term
+  const filteredBudgets = budgets.filter(budget =>
+    budget.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Pagination
+  const totalPages = Math.ceil(filteredBudgets.length / itemsPerPage);
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBudgets = filteredBudgets.slice(startIndex, endIndex);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   const getIcon = (category) => {
     const icons = {
@@ -166,7 +244,7 @@ function Budget({ userId }) {
         <div className="summary-card-budget">
           <div className="summary-label">Total Budget</div>
           <div className="summary-value">₹{totalBudget.toLocaleString()}</div>
-          <div className="summary-count">across 8 categories</div>
+          <div className="summary-count">across {budgets.length} categories</div>
         </div>
         <div className="summary-card-budget">
           <div className="summary-label">Total Spent</div>
@@ -180,56 +258,96 @@ function Budget({ userId }) {
         </div>
       </div>
 
+      <div className="search-bar-budget">
+        <input
+          type="text"
+          placeholder="Search budgets by category..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(0);
+          }}
+          className="search-input-budget"
+        />
+      </div>
+
       <div className="category-breakdown">
         <h2>Category Breakdown</h2>
 
         {loading ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
-        ) : budgets.length === 0 ? (
+        ) : filteredBudgets.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-            No budgets set yet. Click "Set Budget" to create one.
+            {searchTerm ? 'No budgets found matching your search.' : 'No budgets set yet. Click "Set Budget" to create one.'}
           </div>
         ) : (
-          budgets.map(budget => {
-            const percentage = budget.limit > 0 ? Math.round((budget.spent / budget.limit) * 100) : 0;
-            return (
-              <div key={budget._id} className="budget-item-large">
-                <div className="budget-header">
-                  <div className="budget-info">
-                    <span className="budget-icon-large">{getIcon(budget.category)}</span>
-                    <span className="budget-name">{budget.category}</span>
+          <>
+            {paginatedBudgets.map(budget => {
+              const percentage = budget.limit > 0 ? Math.round((budget.spent / budget.limit) * 100) : 0;
+              return (
+                <div key={budget._id} className="budget-item-large">
+                  <div className="budget-header">
+                    <div className="budget-info">
+                      <span className="budget-icon-large">{getIcon(budget.category)}</span>
+                      <span className="budget-name">{budget.category}</span>
+                    </div>
+                    <div className="budget-amounts">
+                      <span className="amount-spent">₹{budget.spent.toLocaleString()}</span>
+                      <span className="amount-total">/₹{budget.limit.toLocaleString()}</span>
+                    </div>
+                    <div className="budget-actions">
+                      <button className="action-btn edit" onClick={() => handleEdit(budget)}><MdEdit /></button>
+                      <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
+                    </div>
                   </div>
-                  <div className="budget-amounts">
-                    <span className="amount-spent">₹{budget.spent.toLocaleString()}</span>
-                    <span className="amount-total">/₹{budget.limit.toLocaleString()}</span>
+                  <div className="budget-progress-bar">
+                    <div 
+                      className="budget-progress-fill" 
+                      style={{ 
+                        width: `${Math.min(percentage, 100)}%`,
+                        background: getProgressColor(percentage)
+                      }}
+                    ></div>
                   </div>
-                  <div className="budget-actions">
-                    <button className="action-btn edit" onClick={() => handleEdit(budget)}><MdEdit /></button>
-                    <button className="action-btn delete" onClick={() => handleDelete(budget._id)}><MdDelete /></button>
-                  </div>
+                  <div className="budget-percentage-label">{percentage}%</div>
                 </div>
-                <div className="budget-progress-bar">
-                  <div 
-                    className="budget-progress-fill" 
-                    style={{ 
-                      width: `${Math.min(percentage, 100)}%`,
-                      background: getProgressColor(percentage)
-                    }}
-                  ></div>
+              );
+            })}
+            
+            {filteredBudgets.length > itemsPerPage && (
+              <div className="pagination">
+                <span>
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredBudgets.length)} of {filteredBudgets.length} budgets
+                </span>
+                <div className="pagination-controls">
+                  <button 
+                    className="page-btn" 
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 0}
+                  >
+                    ◀
+                  </button>
+                  <span className="page-info">Page {currentPage + 1} of {totalPages || 1}</span>
+                  <button 
+                    className="page-btn" 
+                    onClick={handleNextPage}
+                    disabled={currentPage >= totalPages - 1}
+                  >
+                    ▶
+                  </button>
                 </div>
-                <div className="budget-percentage-label">{percentage}%</div>
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingBudget ? 'Edit Budget' : 'Set Budget'}</h2>
-              <button className="close-btn" onClick={() => { setShowModal(false); setEditingBudget(null); }}>×</button>
+              <button className="close-btn" onClick={handleCloseModal}>×</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -237,7 +355,7 @@ function Budget({ userId }) {
                 <input
                   type="text"
                   value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  onChange={(e) => handleFormChange('category', e.target.value)}
                   placeholder="e.g., Groceries"
                   required
                 />
@@ -247,7 +365,7 @@ function Budget({ userId }) {
                 <input
                   type="number"
                   value={formData.limit}
-                  onChange={(e) => setFormData({...formData, limit: e.target.value})}
+                  onChange={(e) => handleFormChange('limit', e.target.value)}
                   placeholder="500"
                   min="0"
                   required
@@ -258,7 +376,7 @@ function Budget({ userId }) {
                   <label>Month</label>
                   <select
                     value={formData.month}
-                    onChange={(e) => setFormData({...formData, month: parseInt(e.target.value)})}
+                    onChange={(e) => handleFormChange('month', parseInt(e.target.value))}
                   >
                     {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
                       <option key={i} value={i + 1}>{m}</option>
@@ -270,7 +388,7 @@ function Budget({ userId }) {
                   <input
                     type="number"
                     value={formData.year}
-                    onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
+                    onChange={(e) => handleFormChange('year', parseInt(e.target.value))}
                     min="2020"
                     max="2030"
                   />
@@ -281,13 +399,48 @@ function Budget({ userId }) {
                 <input
                   type="number"
                   value={formData.alertAt}
-                  onChange={(e) => setFormData({...formData, alertAt: parseInt(e.target.value)})}
+                  onChange={(e) => handleFormChange('alertAt', parseInt(e.target.value))}
                   min="0"
                   max="100"
                 />
               </div>
               <button type="submit" className="submit-btn">Save</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showSuccessModal && (
+        <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
+          <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{successTitle}</h2>
+            <div className="success-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
+                <path d="M25 40L35 50L55 30" stroke="#1a1a1a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="success-message">{successMessage}</p>
+            <button className="done-btn" onClick={() => setShowSuccessModal(false)}>Done</button>
+          </div>
+        </div>
+      )}
+
+      {showDiscardModal && (
+        <div className="modal-overlay" onClick={() => setShowDiscardModal(false)}>
+          <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Discard Changes?</h2>
+            <div className="warning-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
+                <text x="40" y="55" fontSize="48" fontWeight="bold" textAnchor="middle" fill="#1a1a1a">!</text>
+              </svg>
+            </div>
+            <p className="success-message">You have unsaved changes to this category. If you leave now, your updates will be lost.</p>
+            <div className="discard-buttons">
+              <button className="discard-btn" onClick={handleDiscard}>Discard</button>
+              <button className="continue-btn" onClick={handleContinueEditing}>Continue editing</button>
+            </div>
           </div>
         </div>
       )}

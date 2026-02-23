@@ -229,6 +229,15 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 2px solid #e8e8e8;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  border-color: #d0d0d0;
 }
 
 .stat-card.dark {
@@ -236,8 +245,17 @@
   color: #fff;
 }
 
+.stat-card.dark:hover {
+  background: #2d2d2d;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
 .stat-card.beige {
   background: #e8e4d9;
+}
+
+.stat-card.beige:hover {
+  background: #ded9cc;
 }
 
 .stat-icon {
@@ -401,6 +419,56 @@
   max-width: 50px;
   border-radius: 8px;
   margin: 0 5px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.bar:hover {
+  opacity: 0.85;
+  transform: translateY(-3px);
+}
+
+.bar:hover .bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-10px);
+}
+
+.bar-tooltip {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bar-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(0, 0, 0, 0.85);
+}
+
+.bar.expense .bar-tooltip {
+  color: #ff6b6b;
 }
 
 .bar.income {
@@ -528,11 +596,11 @@
   background: #fff;
   padding: 32px;
   border-radius: 24px;
-  max-width: 991px;
-  min-height: 611px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+  border: 1px solid #e0e0e0;
 }
 
 .section-subtitle {
@@ -626,16 +694,36 @@
 .insight-item {
   padding: 16px;
   border: 1px solid #e8e8e8;
-  border-radius: 24px;
+  border-radius: 16px;
   background: #fafafa;
-  min-height: 83px;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .insight-item:last-child {
   border: 1px solid #e8e8e8;
+}
+
+.insight-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.insight-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.insight-description {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+  font-weight: 400;
 }
 
 .insight-header {
@@ -667,6 +755,13 @@
   color: #1a1a1a;
   line-height: 1.6;
   font-weight: 400;
+}
+
+.insight-detail {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
 }
 
 .budget-item {
@@ -734,24 +829,40 @@
 }
 
 .bottom-grid {
-  display: grid;
-  grid-template-columns: 1fr 519px;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   max-width: 100%;
   margin-top: 24px;
   padding: 0 40px 40px 40px;
 }
 
-.right-sidebar-bottom {
+.budget-savings-row {
   display: flex;
-  flex-direction: column;
   gap: 24px;
+  width: 100%;
 }
 
-.budgeting-section, .savings-section {
+.budgeting-section {
   background: #fff;
   padding: 32px;
   border-radius: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border: 1px solid #e0e0e0;
+}
+
+.savings-section {
+  background: #fff;
+  padding: 32px;
+  border-radius: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border: 1px solid #e0e0e0;
 }
 
 .notification-container {
@@ -836,4 +947,15 @@
 .notification-date {
   font-size: 11px;
   color: #999;
+}
+
+.dashboard-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.top-bar {
+  gap: 20px;
 }

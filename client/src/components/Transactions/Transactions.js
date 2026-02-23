@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './Transactions.css';
 import AddTransactionModal from './AddTransactionModal';
-import { MdTv, MdRestaurant, MdDirectionsCar, MdShoppingBag, MdDescription, MdLocalHospital, MdCreditCard, MdAccountBalance, MdDelete } from 'react-icons/md';
+import { MdTv, MdRestaurant, MdDirectionsCar, MdShoppingBag, MdDescription, MdLocalHospital, MdCreditCard, MdAccountBalance, MdDelete, MdCalendarToday } from 'react-icons/md';
 
 function Transactions({ userId, onTransactionChange }) {
   const [filter, setFilter] = useState('Month');
@@ -12,6 +12,13 @@ function Transactions({ userId, onTransactionChange }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [tempStartDate, setTempStartDate] = useState('');
+  const [tempEndDate, setTempEndDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     if (userId) {
@@ -35,9 +42,10 @@ function Transactions({ userId, onTransactionChange }) {
     }
   };
 
-  const handleTransactionSuccess = () => {
+  const handleTransactionSuccess = (transactionData) => {
     fetchTransactions();
-    alert('Transaction added successfully!');
+    setSuccessMessage(`Transaction "${transactionData.description}" has been added successfully.`);
+    setShowSuccessModal(true);
   };
 
   const handleDeleteTransaction = async (id) => {
@@ -65,31 +73,104 @@ function Transactions({ userId, onTransactionChange }) {
   const handleClearFilters = () => {
     setSearchTerm('');
     setTypeFilter('all');
-    setStartDate('');
-    setEndDate('');
+    setCurrentPage(0);
   };
 
-  // Filter transactions
-  const filteredTransactions = transactions.filter(transaction => {
-    // Search filter
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Type filter
-    const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
-    
-    // Date filter
-    const transactionDate = new Date(transaction.date);
-    const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
-    const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
-    
-    // Time period filter (Week/Month/Year)
-    const now = new Date();
-    let matchesPeriod = true;
+  const handlePeriodFilterChange = (period) => {
+    setFilter(period);
+    // Clear date filter when selecting Week/Month/Year
+    setStartDate('');
+    setEndDate('');
+    setTempStartDate('');
+    setTempEndDate('');
+  };
+
+  const handleApplyDateFilter = () => {
+    setStartDate(tempStartDate);
+    setEndDate(tempEndDate);
+    setShowDatePicker(false);
+    // Clear period filter when applying date filter
+    setFilter('');
+  };
+
+  const handleClearDateFilter = () => {
+    setTempStartDate('');
+    setTempEndDate('');
+    setStartDate('');
+    setEndDate('');
+    // Reset to Month filter
+    setFilter('Month');
+  };
+
+  const handleDateIconClick = () => {
+    if (startDate || endDate) {
+      // If date filter is active, clear it
+      handleClearDateFilter();
+    } else {
+      // Otherwise, toggle the date picker
+      setShowDatePicker(!showDatePicker);
+    }
+  };
+
+  // Get the period label for the Total Count card
+  const getPeriodLabel = () => {
+    if (startDate || endDate) {
+      if (startDate && endDate) {
+        return 'in date range';
+      } else if (startDate) {
+        return 'on selected date';
+      } else {
+        return 'on selected date';
+      }
+    }
     
     if (filter === 'Week') {
-      // Current week (Sunday to Saturday)
-      const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+      return 'this week';
+    } else if (filter === 'Month') {
+      return 'this month';
+    } else if (filter === 'Year') {
+      return 'this year';
+    }
+    
+    return 'this month';
+  };
+
+  // Top filters (Week/Month/Year + Date Range) - affects summary cards AND table
+  const topFilteredTransactions = transactions.filter(transaction => {
+    const transactionDate = new Date(transaction.date);
+    transactionDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    
+    // If date filter is active, use it and ignore period filter
+    if (startDate || endDate) {
+      if (startDate && !endDate) {
+        // Only start date selected - show only that exact date
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const startEnd = new Date(startDate);
+        startEnd.setHours(23, 59, 59, 999);
+        return transactionDate >= start && transactionDate <= startEnd;
+      } else if (!startDate && endDate) {
+        // Only end date selected - show only that exact date
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+        const endEnd = new Date(endDate);
+        endEnd.setHours(23, 59, 59, 999);
+        return transactionDate >= end && transactionDate <= endEnd;
+      } else if (startDate && endDate) {
+        // Both dates selected - show range
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        return transactionDate >= start && transactionDate <= end;
+      }
+    }
+    
+    // Otherwise use period filter (Week/Month/Year)
+    const now = new Date();
+    
+    if (filter === 'Week') {
+      const currentDay = now.getDay();
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - currentDay);
       weekStart.setHours(0, 0, 0, 0);
@@ -98,34 +179,62 @@ function Transactions({ userId, onTransactionChange }) {
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
       
-      matchesPeriod = transactionDate >= weekStart && transactionDate <= weekEnd;
+      return transactionDate >= weekStart && transactionDate <= weekEnd;
     } else if (filter === 'Month') {
-      // Current month (1st to last day of month)
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      matchesPeriod = transactionDate >= monthStart && 
-                     transactionDate.getMonth() === now.getMonth() &&
-                     transactionDate.getFullYear() === now.getFullYear();
+      return transactionDate >= monthStart && 
+             transactionDate.getMonth() === now.getMonth() &&
+             transactionDate.getFullYear() === now.getFullYear();
     } else if (filter === 'Year') {
-      // Current year (Jan 1 to Dec 31)
-      matchesPeriod = transactionDate.getFullYear() === now.getFullYear();
+      return transactionDate.getFullYear() === now.getFullYear();
     }
     
-    return matchesSearch && matchesType && matchesStartDate && matchesEndDate && matchesPeriod;
+    return true;
   });
 
-  // Calculate totals
-  const totalIn = filteredTransactions
+  // Bottom filters (Search + Type) - only affects table display
+  const filteredTransactions = topFilteredTransactions.filter(transaction => {
+    // Search filter
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Type filter
+    const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
+    
+    return matchesSearch && matchesType;
+  });
+
+  // Calculate totals from top-filtered transactions (for summary cards)
+  const totalIn = topFilteredTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
   
-  const totalOut = filteredTransactions
+  const totalOut = topFilteredTransactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
   
   const netSavings = totalIn - totalOut;
-  const totalCount = filteredTransactions.length;
-  const inCount = filteredTransactions.filter(t => t.type === 'income').length;
-  const outCount = filteredTransactions.filter(t => t.type === 'expense').length;
+  const totalCount = topFilteredTransactions.length;
+  const inCount = topFilteredTransactions.filter(t => t.type === 'income').length;
+  const outCount = topFilteredTransactions.filter(t => t.type === 'expense').length;
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   const getIcon = (category) => {
     const icons = {
@@ -149,7 +258,7 @@ function Transactions({ userId, onTransactionChange }) {
     <div className="transactions-page">
       <header className="page-header">
         <div>
-          <div className="date">FEBRUARY 2026</div>
+          <div className="date">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
           <h1>Transactions</h1>
         </div>
         <button className="add-btn" onClick={() => setIsModalOpen(true)}>+ Add Transactions</button>
@@ -163,9 +272,45 @@ function Transactions({ userId, onTransactionChange }) {
       />
 
       <div className="filter-tabs">
-        <button className={filter === 'Week' ? 'tab active' : 'tab'} onClick={() => setFilter('Week')}>Week</button>
-        <button className={filter === 'Month' ? 'tab active' : 'tab'} onClick={() => setFilter('Month')}>Month</button>
-        <button className={filter === 'Year' ? 'tab active' : 'tab'} onClick={() => setFilter('Year')}>Year</button>
+        <button className={filter === 'Week' && !startDate && !endDate && !showDatePicker ? 'tab active' : 'tab'} onClick={() => handlePeriodFilterChange('Week')}>Week</button>
+        <button className={filter === 'Month' && !startDate && !endDate && !showDatePicker ? 'tab active' : 'tab'} onClick={() => handlePeriodFilterChange('Month')}>Month</button>
+        <button className={filter === 'Year' && !startDate && !endDate && !showDatePicker ? 'tab active' : 'tab'} onClick={() => handlePeriodFilterChange('Year')}>Year</button>
+        <div className="calendar-picker-wrapper">
+          <button 
+            className={`tab calendar-icon ${(startDate || endDate || showDatePicker) ? 'active' : ''}`} 
+            onClick={handleDateIconClick}
+          >
+            <MdCalendarToday />
+          </button>
+          {showDatePicker && (
+            <div className="date-picker-dropdown">
+              <div className="date-picker-inputs">
+                <div className="date-input-group">
+                  <label>From</label>
+                  <input 
+                    type="date" 
+                    className="date-input"
+                    value={tempStartDate}
+                    onChange={(e) => setTempStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="date-input-group">
+                  <label>To</label>
+                  <input 
+                    type="date" 
+                    className="date-input"
+                    value={tempEndDate}
+                    onChange={(e) => setTempEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="date-picker-actions">
+                <button className="date-clear-btn" onClick={handleClearDateFilter}>Clear</button>
+                <button className="date-apply-btn" onClick={handleApplyDateFilter}>Apply</button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="summary-cards">
@@ -187,7 +332,7 @@ function Transactions({ userId, onTransactionChange }) {
         <div className="summary-card white">
           <div className="summary-label">Total Count</div>
           <div className="summary-value">{totalCount}</div>
-          <div className="summary-count">transactions this month</div>
+          <div className="summary-count">transactions {getPeriodLabel()}</div>
         </div>
       </div>
 
@@ -210,20 +355,6 @@ function Transactions({ userId, onTransactionChange }) {
           <option value="income">Income</option>
           <option value="expense">Expense</option>
         </select>
-        <input 
-          type="date" 
-          className="filter-select"
-          placeholder="Start Date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-        <input 
-          type="date" 
-          className="filter-select"
-          placeholder="End Date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
         <button className="clear-filters-btn" onClick={handleClearFilters}>
           ✕ Clear
         </button>
@@ -235,6 +366,7 @@ function Transactions({ userId, onTransactionChange }) {
           <div className="col-type">IN/OUT</div>
           <div className="col-date">DATE</div>
           <div className="col-category">CATEGORY</div>
+          <div className="col-payment">PAYMENT</div>
           <div className="col-amount">AMOUNT</div>
           <div className="col-actions">ACTIONS</div>
         </div>
@@ -244,7 +376,7 @@ function Transactions({ userId, onTransactionChange }) {
             No transactions found matching your filters.
           </div>
         ) : (
-          filteredTransactions.map(transaction => (
+          paginatedTransactions.map(transaction => (
             <div key={transaction._id} className="table-row">
               <div className="col-merchant">
                 <div className="merchant-icon">{getIcon(transaction.category)}</div>
@@ -257,6 +389,11 @@ function Transactions({ userId, onTransactionChange }) {
               <div className="col-category">
                 <span className={`category-badge ${transaction.type === 'income' ? 'badge-green' : 'badge-red'}`}>
                   {transaction.category}
+                </span>
+              </div>
+              <div className="col-payment">
+                <span className="payment-badge">
+                  {transaction.paymentMethod ? transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1) : 'Cash'}
                 </span>
               </div>
               <div className={`col-amount ${transaction.type === 'income' ? 'amount-positive' : 'amount-negative'}`}>
@@ -277,9 +414,43 @@ function Transactions({ userId, onTransactionChange }) {
       </div>
 
       <div className="pagination">
-        <span>Showing {filteredTransactions.length} of {transactions.length} transactions</span>
-        <button className="page-btn">◀</button>
+        <span>
+          Showing {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
+        </span>
+        <div className="pagination-controls">
+          <button 
+            className="page-btn" 
+            onClick={handlePreviousPage}
+            disabled={currentPage === 0}
+          >
+            ◀
+          </button>
+          <span className="page-info">Page {currentPage + 1} of {totalPages || 1}</span>
+          <button 
+            className="page-btn" 
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages - 1}
+          >
+            ▶
+          </button>
+        </div>
       </div>
+
+      {showSuccessModal && (
+        <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
+          <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Transaction Created</h2>
+            <div className="success-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
+                <path d="M25 40L35 50L55 30" stroke="#1a1a1a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="success-message">{successMessage}</p>
+            <button className="done-btn" onClick={() => setShowSuccessModal(false)}>Done</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

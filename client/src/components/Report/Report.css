@@ -48,22 +48,46 @@
   padding: 25px;
   border-radius: 20px;
   border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.summary-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  border-color: #ccc;
 }
 
 .income-card {
   background: #d4f4dd;
 }
 
+.income-card:hover {
+  background: #c5eacd;
+}
+
 .expense-card {
   background: #ffd4d4;
+}
+
+.expense-card:hover {
+  background: #ffc5c5;
 }
 
 .savings-card {
   background: #fff;
 }
 
+.savings-card:hover {
+  background: #f9f9f9;
+}
+
 .category-card {
   background: #fff;
+}
+
+.category-card:hover {
+  background: #f9f9f9;
 }
 
 .card-label {
@@ -217,6 +241,10 @@
   background: #ff6b6b;
 }
 
+.amount-legend::before {
+  background: #51cf66;
+}
+
 .line-chart-placeholder {
   flex: 1;
   display: flex;
@@ -226,4 +254,104 @@
   border-radius: 12px;
   min-height: 300px;
   color: #999;
+}
+
+.line-chart {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 350px;
+  padding: 20px 0;
+}
+
+.bar-chart-report {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  width: 100%;
+  height: 320px;
+  gap: 80px;
+  padding: 0 40px;
+}
+
+.bar-group-report {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.single-bar-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 300px;
+}
+
+.bar-report-single {
+  width: 120px;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.3s ease;
+  min-height: 20px;
+  position: relative;
+  cursor: pointer;
+}
+
+.bar-report-single:hover {
+  opacity: 0.85;
+  transform: translateY(-3px);
+}
+
+.bar-report-single:hover .bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-10px);
+}
+
+.bar-tooltip {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bar-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(0, 0, 0, 0.85);
+}
+
+.income-bar {
+  background: #51cf66;
+}
+
+.expense-bar {
+  background: #ff6b6b;
+}
+
+.bar-label-report {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  text-align: center;
 }
