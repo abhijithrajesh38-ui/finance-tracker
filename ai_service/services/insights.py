@@ -88,6 +88,20 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         if hasattr(d, "strftime"):
             if latest_tx_date is None or d > latest_tx_date:
                 latest_tx_date = d
+
+    this_month_key: str | None = None
+    last_month_key: str | None = None
+    if latest_tx_date is not None:
+        this_month_key = latest_tx_date.strftime("%Y-%m")
+        # Compute previous month key
+        y = latest_tx_date.year
+        m = latest_tx_date.month
+        if m == 1:
+            y -= 1
+            m = 12
+        else:
+            m -= 1
+        last_month_key = f"{y:04d}-{m:02d}"
     
     # Convert ObjectIds to strings for JSON serialization
     for transaction in transactions:
@@ -375,6 +389,8 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         "summary": {
             "since": since.isoformat() if since else "all-time",
             "referenceDate": latest_tx_date.isoformat() if latest_tx_date else None,
+            "thisMonthKey": this_month_key,
+            "lastMonthKey": last_month_key,
             "transactions": len(transactions),
             "income": round(total_income, 2),
             "expenses": round(total_expenses, 2),
