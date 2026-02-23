@@ -51,6 +51,7 @@
   height: auto;
   margin-bottom: -20px;
   display: block;
+  filter: brightness(0) invert(1);
 }
 
 .logo {
@@ -63,14 +64,6 @@
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-}
-
-.logo::after {
-  content: '';
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  border-radius: 50%;
 }
 
 h1 {

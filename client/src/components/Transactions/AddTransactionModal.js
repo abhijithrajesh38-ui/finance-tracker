@@ -81,7 +81,7 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
           paymentMethod: 'cash',
           recurring: false
         });
-        onSuccess();
+        onSuccess(formData);
         onClose();
       } else {
         setError(data.message || 'Failed to create transaction');

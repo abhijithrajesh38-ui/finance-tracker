@@ -546,11 +546,11 @@
   background: #fff;
   padding: 32px;
   border-radius: 24px;
-  max-width: 991px;
-  min-height: 611px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+  border: 1px solid #e0e0e0;
 }
 
 .section-subtitle {
@@ -779,26 +779,25 @@
 }
 
 .bottom-grid {
-  display: grid;
-  grid-template-columns: 1fr 519px;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   max-width: 100%;
   margin-top: 24px;
   padding: 0 40px 40px 40px;
 }
 
-.right-sidebar-bottom {
+.budget-savings-row {
   display: flex;
-  flex-direction: column;
   gap: 24px;
+  width: 100%;
 }
 
 .budgeting-section {
   background: #fff;
   padding: 32px;
   border-radius: 24px;
-  width: 520px;
-  height: 293px;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -809,8 +808,7 @@
   background: #fff;
   padding: 32px;
   border-radius: 24px;
-  width: 520px;
-  height: 293px;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -899,4 +897,15 @@
 .notification-date {
   font-size: 11px;
   color: #999;
+}
+
+.dashboard-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.top-bar {
+  gap: 20px;
 }

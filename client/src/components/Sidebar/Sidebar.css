@@ -7,23 +7,14 @@
   gap: 8px;
 }
 
-.sidebar .logo {
-  font-size: 32px;
-  font-weight: 300;
-  color: #fff;
+.sidebar .logo-img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
   margin-bottom: 40px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 0 12px;
-}
-
-.sidebar .logo::after {
-  content: '';
-  width: 12px;
-  height: 12px;
-  background: #fff;
-  border-radius: 50%;
+  display: block;
+  margin-left: 16px;
 }
 
 .nav-item {
@@ -66,4 +57,10 @@
   height: 1px;
   background: #2a2a2a;
   margin: 16px 0;
+}
+
+.finn-nav-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }

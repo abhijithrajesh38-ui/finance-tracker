@@ -58,6 +58,9 @@ function Report({ userId }) {
 
   const categoryColors = ['#ff6b6b', '#4dabf7', '#ffa94d', '#51cf66'];
 
+  // Calculate max amount for scaling
+  const maxAmount = Math.max(totalIncome, totalExpenses, 1);
+
   return (
     <div className="report-page">
       <header className="report-header">
@@ -131,11 +134,35 @@ function Report({ userId }) {
         <div className="chart-card income-expense-chart">
           <h2>Income vs Expense</h2>
           <div className="chart-legend-top">
-            <span className="legend-dot income-dot"></span> INCOME
-            <span className="legend-dot expense-dot"></span> EXPENSES
+            <span className="legend-dot amount-legend"></span> Amount (₹)
           </div>
-          <div className="line-chart-placeholder">
-            <p>Chart visualization coming soon</p>
+          <div className="line-chart">
+            <div className="bar-chart-report">
+              <div className="bar-group-report">
+                <div className="single-bar-container">
+                  <div 
+                    className="bar-report-single income-bar" 
+                    style={{ height: `${(totalIncome / maxAmount) * 300}px` }}
+                    title={`Income: ₹${totalIncome.toLocaleString()}`}
+                  >
+                    <div className="bar-tooltip">₹{totalIncome.toLocaleString()}</div>
+                  </div>
+                </div>
+                <div className="bar-label-report">Income</div>
+              </div>
+              <div className="bar-group-report">
+                <div className="single-bar-container">
+                  <div 
+                    className="bar-report-single expense-bar" 
+                    style={{ height: `${(totalExpenses / maxAmount) * 300}px` }}
+                    title={`Expenses: ₹${totalExpenses.toLocaleString()}`}
+                  >
+                    <div className="bar-tooltip">₹{totalExpenses.toLocaleString()}</div>
+                  </div>
+                </div>
+                <div className="bar-label-report">Expenses</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
