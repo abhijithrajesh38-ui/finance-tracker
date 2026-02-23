@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './Transactions.css';
 import AddTransactionModal from './AddTransactionModal';
-import { MdTv, MdRestaurant, MdDirectionsCar, MdShoppingBag, MdDescription, MdLocalHospital, MdCreditCard, MdAccountBalance, MdDelete, MdCalendarToday } from 'react-icons/md';
+import { MdDelete, MdCalendarToday, MdArrowDownward, MdArrowUpward } from 'react-icons/md';
 
 function Transactions({ userId, onTransactionChange }) {
   const [filter, setFilter] = useState('Month');
@@ -17,7 +17,10 @@ function Transactions({ userId, onTransactionChange }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [successTitle, setSuccessTitle] = useState('Transaction Created');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -44,23 +47,29 @@ function Transactions({ userId, onTransactionChange }) {
 
   const handleTransactionSuccess = (transactionData) => {
     fetchTransactions();
+    setSuccessTitle('Transaction Created');
     setSuccessMessage(`Transaction "${transactionData.description}" has been added successfully.`);
     setShowSuccessModal(true);
   };
 
   const handleDeleteTransaction = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this transaction?')) {
-      return;
-    }
+    setTransactionToDelete(id);
+    setShowDeleteModal(true);
+  };
 
+  const confirmDelete = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+      const response = await fetch(`http://localhost:5000/api/transactions/${transactionToDelete}`, {
         method: 'DELETE'
       });
 
       if (response.ok) {
-        alert('Transaction deleted successfully!');
+        setShowDeleteModal(false);
+        setTransactionToDelete(null);
         fetchTransactions();
+        setSuccessTitle('Transaction Deleted');
+        setSuccessMessage('Transaction has been deleted successfully.');
+        setShowSuccessModal(true);
       } else {
         alert('Failed to delete transaction');
       }
@@ -68,6 +77,11 @@ function Transactions({ userId, onTransactionChange }) {
       console.error('Error deleting transaction:', error);
       alert('Error deleting transaction');
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setTransactionToDelete(null);
   };
 
   const handleClearFilters = () => {
@@ -236,18 +250,12 @@ function Transactions({ userId, onTransactionChange }) {
     }
   };
 
-  const getIcon = (category) => {
-    const icons = {
-      'Entertainment': <MdTv />,
-      'Income': <MdAccountBalance />,
-      'Salary': <MdAccountBalance />,
-      'Food': <MdRestaurant />,
-      'Transport': <MdDirectionsCar />,
-      'Shopping': <MdShoppingBag />,
-      'Bills': <MdDescription />,
-      'Health': <MdLocalHospital />
-    };
-    return icons[category] || <MdCreditCard />;
+  const getIcon = (type) => {
+    if (type === 'income') {
+      return <MdArrowDownward />;
+    } else {
+      return <MdArrowUpward />;
+    }
   };
 
   if (loading) {
@@ -379,7 +387,9 @@ function Transactions({ userId, onTransactionChange }) {
           paginatedTransactions.map(transaction => (
             <div key={transaction._id} className="table-row">
               <div className="col-merchant">
-                <div className="merchant-icon">{getIcon(transaction.category)}</div>
+                <div className={`merchant-icon ${transaction.type === 'income' ? 'icon-income' : 'icon-expense'}`}>
+                  {getIcon(transaction.type)}
+                </div>
                 <span>{transaction.description}</span>
               </div>
               <div className={`col-type ${transaction.type === 'income' ? 'type-in' : 'type-out'}`}>
@@ -439,7 +449,7 @@ function Transactions({ userId, onTransactionChange }) {
       {showSuccessModal && (
         <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
           <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Transaction Created</h2>
+            <h2>{successTitle}</h2>
             <div className="success-icon">
               <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
                 <circle cx="40" cy="40" r="40" fill="#e8e8e8"/>
@@ -448,6 +458,25 @@ function Transactions({ userId, onTransactionChange }) {
             </div>
             <p className="success-message">{successMessage}</p>
             <button className="done-btn" onClick={() => setShowSuccessModal(false)}>Done</button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete Transaction</h2>
+            <div className="delete-icon">
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="#ffe8e8"/>
+                <path d="M30 30L50 50M50 30L30 50" stroke="#ff4444" strokeWidth="4" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p className="delete-message">Are you sure you want to delete this transaction? This action cannot be undone.</p>
+            <div className="delete-modal-actions">
+              <button className="cancel-btn" onClick={cancelDelete}>Cancel</button>
+              <button className="confirm-delete-btn" onClick={confirmDelete}>Delete</button>
+            </div>
           </div>
         </div>
       )}
