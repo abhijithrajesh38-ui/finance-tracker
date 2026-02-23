@@ -29,6 +29,43 @@ def _std(values: list[float]) -> float:
     return math.sqrt(var)
 
 
+def _calculate_trend(values: list[float]) -> dict[str, Any]:
+    """Calculate trend direction and percentage change."""
+    if len(values) < 2:
+        return {"direction": "stable", "change": 0.0}
+    
+    # Simple linear trend: compare first half vs second half
+    mid = len(values) // 2
+    first_half_avg = _mean(values[:mid]) if mid > 0 else 0
+    second_half_avg = _mean(values[mid:]) if mid > 0 else 0
+    
+    if first_half_avg == 0:
+        return {"direction": "stable", "change": 0.0}
+    
+    change_pct = ((second_half_avg - first_half_avg) / first_half_avg) * 100
+    
+    if change_pct > 5:
+        direction = "increasing"
+    elif change_pct < -5:
+        direction = "decreasing"
+    else:
+        direction = "stable"
+    
+    return {"direction": direction, "change": round(change_pct, 1)}
+
+
+def _predict_next_month(monthly_values: dict[str, float]) -> float:
+    """Simple prediction based on recent average."""
+    if not monthly_values:
+        return 0.0
+    
+    # Sort by month and take last 3 months
+    sorted_months = sorted(monthly_values.items())
+    recent_values = [v for _, v in sorted_months[-3:]]
+    
+    return _mean(recent_values) if recent_values else 0.0
+
+
 def build_insights(db, user_id: str, since: datetime | None = None, load_all: bool = False) -> dict[str, Any]:
     oid = _to_object_id(user_id)
 
@@ -43,6 +80,13 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             {"type": 1, "category": 1, "amount": 1, "description": 1, "date": 1},
         )
     )
+    
+    # Convert ObjectIds to strings for JSON serialization
+    for transaction in transactions:
+        if "_id" in transaction:
+            transaction["_id"] = str(transaction["_id"])
+        if "userId" in transaction:
+            transaction["userId"] = str(transaction["userId"])
 
     budgets = list(
         db["budgets"].find(
@@ -50,6 +94,13 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             {"category": 1, "limit": 1, "month": 1, "year": 1, "alertAt": 1, "spent": 1},
         )
     )
+    
+    # Convert ObjectIds to strings for JSON serialization
+    for budget in budgets:
+        if "_id" in budget:
+            budget["_id"] = str(budget["_id"])
+        if "userId" in budget:
+            budget["userId"] = str(budget["userId"])
 
     income = [t for t in transactions if t.get("type") == "income"]
     expenses = [t for t in transactions if t.get("type") == "expense"]
@@ -153,6 +204,15 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         reverse=True,
     )
 
+    # Calculate trends
+    expense_trend = _calculate_trend([v for _, v in sorted(by_month.items())])
+    income_trend = _calculate_trend([v for _, v in sorted(income_by_month.items())])
+    
+    # Predict next month
+    predicted_expenses = _predict_next_month(by_month)
+    predicted_income = _predict_next_month(income_by_month)
+    predicted_savings = predicted_income - predicted_expenses
+
     insights: list[dict[str, Any]] = []
 
     # Monthly Financial Health Summary - Always add this first
@@ -166,6 +226,7 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     if savings_rate > 0 and net >= 0:
         monthly_summary_text += f" Savings rate is {savings_rate}%."
     
+    # 1. Monthly Summary - ALWAYS show
     insights.append(
         {
             "type": "monthly_summary",
@@ -175,18 +236,23 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         }
     )
 
+    # 2. Spending Analysis - ALWAYS show
     if top_categories:
         top = top_categories[0]
-        insights.append(
-            {
-                "type": "spending_analysis",
-                "severity": "info",
-                "title": "Spending Analysis",
-                "text": f"Your highest spending category is {top['category']} (₹{top['spent']:,.2f}).",
-            }
-        )
+        spending_text = f"Your highest spending category is {top['category']} (₹{top['spent']:,.2f})."
+    else:
+        spending_text = "No expense transactions yet. Start tracking your spending to see analysis."
+    
+    insights.append(
+        {
+            "type": "spending_analysis",
+            "severity": "info",
+            "title": "Spending Analysis",
+            "text": spending_text,
+        }
+    )
 
-    # Budget recommendations: use spend in this window to propose next month limit
+    # 3. Budget Recommendation - ALWAYS show
     recs = []
     for cat, spent in sorted(by_category.items(), key=lambda kv: kv[1], reverse=True):
         recommended = round(spent * 1.1, 2)
@@ -194,17 +260,21 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
 
     if recs:
         top_rec = recs[0]
-        insights.append(
-            {
-                "type": "budget_recommendation",
-                "severity": "info",
-                "title": "Budget Recommendation",
-                "text": f"Based on your history, recommended {top_rec['category']} budget is ₹{top_rec['recommendedLimit']:,.2f} per month.",
-                "recommendations": recs[:5],
-            }
-        )
+        budget_text = f"Based on your history, recommended {top_rec['category']} budget is ₹{top_rec['recommendedLimit']:,.2f} per month."
+    else:
+        budget_text = "Add expense transactions to get personalized budget recommendations."
+    
+    insights.append(
+        {
+            "type": "budget_recommendation",
+            "severity": "info",
+            "title": "Budget Recommendation",
+            "text": budget_text,
+            "recommendations": recs[:5] if recs else [],
+        }
+    )
 
-    # Anomaly detection: z-score on expense transaction amounts
+    # 4. Anomaly Detection - ALWAYS show
     amounts = [float(t.get("amount") or 0) for t in expenses]
     m = _mean(amounts)
     s = _std(amounts)
@@ -215,12 +285,21 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             amt = float(t.get("amount") or 0)
             z = (amt - m) / s
             if z >= 2.8 and amt > 0:
+                # Convert date to string for JSON serialization
+                date_val = t.get("date")
+                if hasattr(date_val, "isoformat"):
+                    date_str = date_val.isoformat()
+                elif date_val:
+                    date_str = str(date_val)
+                else:
+                    date_str = None
+                
                 anomalies.append(
                     {
                         "transactionId": str(t.get("_id")),
                         "category": str(t.get("category") or "Uncategorized"),
                         "amount": round(amt, 2),
-                        "date": t.get("date"),
+                        "date": date_str,
                         "description": t.get("description"),
                         "zScore": round(float(z), 2),
                     }
@@ -229,15 +308,19 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     if anomalies:
         a = sorted(anomalies, key=lambda x: x["zScore"], reverse=True)[0]
         date_str = a.get('date', '').strftime('%b %d') if hasattr(a.get('date'), 'strftime') else ''
-        insights.append(
-            {
-                "type": "anomaly",
-                "severity": "alert",
-                "title": "Unusual Activity",
-                "text": f"Unusual expense detected: ₹{a['amount']:,.2f} on {a['category']}{' on ' + date_str if date_str else ''}.",
-                "anomalies": anomalies[:10],
-            }
-        )
+        anomaly_text = f"Unusual expense detected: ₹{a['amount']:,.2f} on {a['category']}{' on ' + date_str if date_str else ''}."
+    else:
+        anomaly_text = "No unusual spending patterns detected. All transactions look normal."
+    
+    insights.append(
+        {
+            "type": "anomaly",
+            "severity": "alert" if anomalies else "info",
+            "title": "Unusual Activity",
+            "text": anomaly_text,
+            "anomalies": anomalies[:10] if anomalies else [],
+        }
+    )
 
     return {
         "summary": {
@@ -266,6 +349,15 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
                 "totalTransactions": len(transactions),
                 "incomeTransactions": len(income),
                 "expenseTransactions": len(expenses),
+            },
+            "trends": {
+                "expenses": expense_trend,
+                "income": income_trend,
+            },
+            "predictions": {
+                "nextMonthExpenses": round(predicted_expenses, 2),
+                "nextMonthIncome": round(predicted_income, 2),
+                "nextMonthSavings": round(predicted_savings, 2),
             },
         },
         "insights": insights,

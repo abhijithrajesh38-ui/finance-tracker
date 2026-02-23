@@ -4,9 +4,13 @@ from typing import Any
 
 
 def build_fallback_answer(question: str, insights: dict[str, Any], conversation_history: str = "") -> str:
+    """Enhanced fallback with better pattern matching and comprehensive responses."""
     q = (question or "").strip().lower()
 
     summary = insights.get("summary", {})
+    stats = summary.get("statistics", {})
+    trends = summary.get("trends", {})
+    predictions = summary.get("predictions", {})
     top = summary.get("topCategories", [])
     top_months = summary.get("topMonths", [])
     category_by_month = summary.get("categoryByMonth", {})
@@ -105,6 +109,80 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
                 except Exception:
                     month_display = target_month
                 return f"In {month_display}, your highest spending category was {top_cat['category']} with {fmt_money(top_cat['spent'])}."
+
+    # Handle trend queries
+    if "trend" in q or "trending" in q or "pattern" in q:
+        expense_trend = trends.get("expenses", {})
+        income_trend = trends.get("income", {})
+        
+        lines = ["Your financial trends:"]
+        
+        exp_dir = expense_trend.get("direction", "stable")
+        exp_change = expense_trend.get("change", 0)
+        if exp_dir == "increasing":
+            lines.append(f"Expenses are increasing by {abs(exp_change):.1f}%")
+        elif exp_dir == "decreasing":
+            lines.append(f"Expenses are decreasing by {abs(exp_change):.1f}%")
+        else:
+            lines.append("Expenses are stable")
+        
+        inc_dir = income_trend.get("direction", "stable")
+        inc_change = income_trend.get("change", 0)
+        if inc_dir == "increasing":
+            lines.append(f"Income is increasing by {abs(inc_change):.1f}%")
+        elif inc_dir == "decreasing":
+            lines.append(f"Income is decreasing by {abs(inc_change):.1f}%")
+        else:
+            lines.append("Income is stable")
+        
+        return "\n".join(lines)
+
+    # Handle prediction/forecast queries
+    if "predict" in q or "forecast" in q or "next month" in q or "future" in q:
+        pred_exp = predictions.get("nextMonthExpenses", 0)
+        pred_inc = predictions.get("nextMonthIncome", 0)
+        pred_sav = predictions.get("nextMonthSavings", 0)
+        
+        lines = ["Based on your recent patterns:"]
+        lines.append(f"Predicted next month expenses: {fmt_money(pred_exp)}")
+        lines.append(f"Predicted next month income: {fmt_money(pred_inc)}")
+        
+        if pred_sav >= 0:
+            lines.append(f"Predicted savings: {fmt_money(pred_sav)}")
+        else:
+            lines.append(f"Predicted deficit: {fmt_money(abs(pred_sav))}")
+        
+        return "\n".join(lines)
+
+    # Handle comparison queries
+    if "compare" in q or "comparison" in q or "vs" in q or "versus" in q:
+        if len(top_months) >= 2:
+            month1 = top_months[0]
+            month2 = top_months[1]
+            
+            try:
+                from datetime import datetime
+                dt1 = datetime.strptime(month1["month"], "%Y-%m")
+                dt2 = datetime.strptime(month2["month"], "%Y-%m")
+                m1_display = dt1.strftime("%B %Y")
+                m2_display = dt2.strftime("%B %Y")
+            except:
+                m1_display = month1["month"]
+                m2_display = month2["month"]
+            
+            diff = month1["spent"] - month2["spent"]
+            pct = (diff / month2["spent"] * 100) if month2["spent"] > 0 else 0
+            
+            lines = [f"Comparing {m1_display} vs {m2_display}:"]
+            lines.append(f"{m1_display}: {fmt_money(month1['spent'])}")
+            lines.append(f"{m2_display}: {fmt_money(month2['spent'])}")
+            
+            if diff > 0:
+                lines.append(f"You spent {fmt_money(diff)} more ({pct:.1f}% increase)")
+            else:
+                lines.append(f"You spent {fmt_money(abs(diff))} less ({abs(pct):.1f}% decrease)")
+            
+            return "\n".join(lines)
 
     # Handle average queries
     if "average" in q or "avg" in q:
