@@ -127,8 +127,22 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     income = [t for t in transactions if t.get("type") == "income"]
     expenses = [t for t in transactions if t.get("type") == "expense"]
 
-    total_income = sum(float(t.get("amount") or 0) for t in income)
-    total_expenses = sum(float(t.get("amount") or 0) for t in expenses)
+    # All-time totals (always computed from full transaction history)
+    all_time_income = list(
+        db["transactions"].find(
+            {"userId": oid, "type": "income"},
+            {"amount": 1},
+        )
+    )
+    all_time_expenses = list(
+        db["transactions"].find(
+            {"userId": oid, "type": "expense"},
+            {"amount": 1},
+        )
+    )
+
+    total_income = sum(float(t.get("amount") or 0) for t in all_time_income)
+    total_expenses = sum(float(t.get("amount") or 0) for t in all_time_expenses)
     net = total_income - total_expenses
 
     # Calculate averages and statistics
@@ -192,6 +206,11 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         if date:
             month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
             income_by_month[month_key] += float(t.get("amount") or 0)
+
+    # This-month values (for dashboard monthly summary)
+    this_month_income = float(income_by_month.get(this_month_key or "", 0) or 0)
+    this_month_expenses = float(by_month.get(this_month_key or "", 0) or 0)
+    this_month_net = this_month_income - this_month_expenses
 
     # Aggregate INCOME by day and by ISO week
     income_by_day: dict[str, float] = defaultdict(float)
@@ -278,26 +297,18 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
 
     insights: list[dict[str, Any]] = []
 
-    # Monthly Financial Health Summary - Always add this first
-    savings_rate = round((net / total_income) * 100, 1) if total_income > 0 else 0
-    
-    if net >= 0:
-        monthly_summary_text = f"You saved ₹{net:,.2f} this month."
-    else:
-        monthly_summary_text = f"You overspent by ₹{abs(net):,.2f} this month."
-    
-    if savings_rate > 0 and net >= 0:
-        monthly_summary_text += f" Savings rate is {savings_rate}%."
-    
-    # 1. Monthly Summary - ALWAYS show
-    insights.append(
-        {
-            "type": "monthly_summary",
-            "severity": "info",
-            "title": "Monthly Summary",
-            "text": monthly_summary_text,
-        }
+    # Monthly Financial Health Summary (THIS month, not all-time)
+    this_month_savings_rate = (
+        round((this_month_net / this_month_income) * 100, 1) if this_month_income > 0 else 0
     )
+
+    if this_month_net >= 0:
+        monthly_summary_text = f"You saved ₹{this_month_net:,.2f} this month."
+    else:
+        monthly_summary_text = f"You overspent by ₹{abs(this_month_net):,.2f} this month."
+
+    if this_month_savings_rate > 0 and this_month_net >= 0:
+        monthly_summary_text += f" Savings rate is {this_month_savings_rate}%."
 
     # 2. Spending Analysis - ALWAYS show
     if top_categories:
@@ -385,6 +396,21 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         }
     )
 
+    # Monthly Summary - ALWAYS show (placed under Unusual Activity)
+    insights.append(
+        {
+            "type": "monthly_summary",
+            "severity": "info",
+            "title": "Monthly Summary",
+            "text": monthly_summary_text,
+            "thisMonthKey": this_month_key,
+            "income": round(this_month_income, 2),
+            "expenses": round(this_month_expenses, 2),
+            "net": round(this_month_net, 2),
+            "savingsRate": this_month_savings_rate,
+        }
+    )
+
     return {
         "summary": {
             "since": since.isoformat() if since else "all-time",
@@ -396,6 +422,12 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
             "expenses": round(total_expenses, 2),
             "net": round(net, 2),
             "savingsRate": round((net / total_income) * 100, 1) if total_income > 0 else 0,
+            "thisMonth": {
+                "income": round(this_month_income, 2),
+                "expenses": round(this_month_expenses, 2),
+                "net": round(this_month_net, 2),
+                "savingsRate": this_month_savings_rate,
+            },
             "topCategories": top_categories[:5],
             "allCategories": top_categories,
             "topMonths": top_months,

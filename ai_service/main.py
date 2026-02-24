@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -34,6 +35,35 @@ conversation_history: dict[str, list[dict[str, str]]] = {}
 MAX_HISTORY_LENGTH = 5  # Increased from 3 for better context
 
 
+def _is_greeting(question: str) -> bool:
+    q = (question or "").strip().lower()
+    if not q:
+        return False
+
+    greetings = {
+        "hi",
+        "hello",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "greetings",
+        "howdy",
+    }
+
+    # Match exact phrase, or phrase at start with punctuation after it.
+    # Avoid substring matches like "hi" in "this".
+    for g in greetings:
+        if " " in g:
+            if q == g or q.startswith(g + " ") or q.startswith(g + "!") or q.startswith(g + ",") or q.startswith(g + "."):
+                return True
+        else:
+            if re.search(rf"\b{re.escape(g)}\b", q):
+                return True
+
+    return False
+
+
 def _is_finance_tracker_question(question: str) -> bool:
     """Enhanced question filtering with better keyword matching."""
     q = (question or "").strip().lower()
@@ -41,8 +71,7 @@ def _is_finance_tracker_question(question: str) -> bool:
         return False
 
     # Allow greetings - they should get a friendly response, not rejection
-    greetings = {"hi", "hello", "hey", "good morning", "good afternoon", "good evening", "greetings", "howdy"}
-    if q in greetings or any(g in q for g in greetings):
+    if _is_greeting(q):
         return True  # Treat as valid but will handle specially
 
     # Expanded finance keywords
@@ -131,8 +160,7 @@ def query(body: QueryRequest) -> dict[str, Any]:
     q = (body.question or "").strip().lower()
     
     # Handle greetings with friendly Finn introduction
-    greetings = {"hi", "hello", "hey", "good morning", "good afternoon", "good evening", "greetings", "howdy"}
-    if q in greetings or any(g in q for g in greetings):
+    if _is_greeting(q):
         return {
             "answer": "Hello! I'm Finn, your personal finance assistant.  What would you like to know about your finances today?",
             "source": "greeting"
