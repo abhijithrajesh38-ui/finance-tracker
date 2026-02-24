@@ -286,6 +286,10 @@
   color: #f44336;
 }
 
+.change-value.neutral {
+  color: #666;
+}
+
 @media (max-width: 1200px) {
   .comparison-grid {
     grid-template-columns: 1fr;

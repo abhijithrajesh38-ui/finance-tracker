@@ -1,0 +1,47 @@
+.goals-page {
+  padding: 30px;
+  background: #fff;
+  min-height: 100vh;
+}
+
+.coming-soon-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 40px;
+}
+
+.coming-soon-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.coming-soon-icon {
+  margin-bottom: 30px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.coming-soon-content h2 {
+  font-size: 36px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 15px;
+}
+
+.coming-soon-content p {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.6;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
