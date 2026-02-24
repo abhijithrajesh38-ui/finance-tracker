@@ -7,6 +7,7 @@ import Finn from '../Finn/Finn';
 import Report from '../Report/Report';
 import Compare from '../Compare/Compare';
 import Bills from '../Bills/Bills';
+import Goals from '../Goals/Goals';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
   MdNotifications, MdPerson, MdWarning, MdArrowDownward, MdArrowUpward
@@ -468,6 +469,17 @@ function Dashboard({ user, onLogout }) {
     );
   }
 
+  if (currentPage === 'goals') {
+    return (
+      <div className="dashboard">
+        <Sidebar currentPage="goals" onNavigate={setCurrentPage} />
+        <main className="main-content" style={{ padding: 0 }}>
+          <Goals userId={user.id} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard">
       <Sidebar currentPage="dashboard" onNavigate={setCurrentPage} />
@@ -580,7 +592,7 @@ function Dashboard({ user, onLogout }) {
               <div className="stat-label">TOTAL EXPENSES</div>
               <div className="stat-value">₹{totalExpenses.toLocaleString()}</div>
               {lastPeriodExpenses !== 0 && (
-                <div className={`stat-change ${expensesChange >= 0 ? 'positive' : 'negative'}`}>
+                <div className={`stat-change ${expensesChange <= 0 ? 'positive' : 'negative'}`}>
                   {expensesChange >= 0 ? '+' : ''}{expensesChange}% {getPeriodLabel()}
                 </div>
               )}
@@ -719,7 +731,7 @@ function Dashboard({ user, onLogout }) {
             <div className="savings-section">
               <div className="section-header">
                 <h2>Saving Goals</h2>
-                <a href="#" className="view-all">VIEW ALL</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('goals'); }} className="view-all">VIEW ALL</a>
               </div>
               <div className="savings-goals">
                 <div className="goal-circle">
