@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -66,6 +66,46 @@ def _predict_next_month(monthly_values: dict[str, float]) -> float:
     return _mean(recent_values) if recent_values else 0.0
 
 
+def _as_local_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+
+    # Mongo/PyMongo commonly returns naive datetimes which represent UTC.
+    # The dashboard (browser) interprets ISO datetimes as local time.
+    # Convert to local timezone to align month/day/week bucketing.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone()
+
+
+def _month_key(date_val: Any) -> str | None:
+    local_dt = _as_local_datetime(date_val)
+    if local_dt is not None:
+        return local_dt.strftime("%Y-%m")
+
+    if date_val:
+        return str(date_val)[:7]
+    return None
+
+
+def _day_key_and_week_key(date_val: Any) -> tuple[str | None, str | None]:
+    local_dt = _as_local_datetime(date_val)
+    if local_dt is not None:
+        day_key = local_dt.strftime("%Y-%m-%d")
+        iso_year, iso_week, _ = local_dt.isocalendar()
+        week_key = f"{iso_year}-W{iso_week:02d}"
+        return day_key, week_key
+
+    if date_val:
+        date_str = str(date_val)
+        day_key = date_str[:10]
+        week_key = day_key[:7]
+        return day_key, week_key
+
+    return None, None
+
+
 def build_insights(db, user_id: str, since: datetime | None = None, load_all: bool = False) -> dict[str, Any]:
     oid = _to_object_id(user_id)
 
@@ -91,17 +131,17 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
 
     this_month_key: str | None = None
     last_month_key: str | None = None
-    if latest_tx_date is not None:
-        this_month_key = latest_tx_date.strftime("%Y-%m")
-        # Compute previous month key
-        y = latest_tx_date.year
-        m = latest_tx_date.month
-        if m == 1:
-            y -= 1
-            m = 12
-        else:
-            m -= 1
-        last_month_key = f"{y:04d}-{m:02d}"
+    reference_now = datetime.now()
+    this_month_key = reference_now.strftime("%Y-%m")
+    # Compute previous month key
+    y = reference_now.year
+    m = reference_now.month
+    if m == 1:
+        y -= 1
+        m = 12
+    else:
+        m -= 1
+    last_month_key = f"{y:04d}-{m:02d}"
     
     # Convert ObjectIds to strings for JSON serialization
     for transaction in transactions:
@@ -127,22 +167,11 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     income = [t for t in transactions if t.get("type") == "income"]
     expenses = [t for t in transactions if t.get("type") == "expense"]
 
-    # All-time totals (always computed from full transaction history)
-    all_time_income = list(
-        db["transactions"].find(
-            {"userId": oid, "type": "income"},
-            {"amount": 1},
-        )
-    )
-    all_time_expenses = list(
-        db["transactions"].find(
-            {"userId": oid, "type": "expense"},
-            {"amount": 1},
-        )
-    )
-
-    total_income = sum(float(t.get("amount") or 0) for t in all_time_income)
-    total_expenses = sum(float(t.get("amount") or 0) for t in all_time_expenses)
+    # Totals are computed from the same transaction set loaded above.
+    # - /insights uses a `since` filter (e.g., last N days)
+    # - /query uses load_all=True (all transactions)
+    total_income = sum(float(t.get("amount") or 0) for t in income)
+    total_expenses = sum(float(t.get("amount") or 0) for t in expenses)
     net = total_income - total_expenses
 
     # Calculate averages and statistics
@@ -158,8 +187,8 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     unique_months = set()
     for t in transactions:
         date = t.get("date")
-        if date:
-            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+        month_key = _month_key(date)
+        if month_key:
             unique_months.add(month_key)
     
     num_months = len(unique_months) if unique_months else 1
@@ -174,8 +203,8 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     by_month: dict[str, float] = defaultdict(float)
     for t in expenses:
         date = t.get("date")
-        if date:
-            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+        month_key = _month_key(date)
+        if month_key:
             by_month[month_key] += float(t.get("amount") or 0)
 
     # Aggregate EXPENSES by day and by ISO week
@@ -186,25 +215,18 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         if not date:
             continue
 
-        if hasattr(date, "strftime"):
-            day_key = date.strftime("%Y-%m-%d")
-            iso_year, iso_week, _ = date.isocalendar()
-            week_key = f"{iso_year}-W{iso_week:02d}"
-        else:
-            # Fallback if date is already string
-            date_str = str(date)
-            day_key = date_str[:10]
-            week_key = day_key[:7]
-
-        expense_by_day[day_key] += float(t.get("amount") or 0)
-        expense_by_week[week_key] += float(t.get("amount") or 0)
+        day_key, week_key = _day_key_and_week_key(date)
+        if day_key:
+            expense_by_day[day_key] += float(t.get("amount") or 0)
+        if week_key:
+            expense_by_week[week_key] += float(t.get("amount") or 0)
 
     # Aggregate INCOME by month
     income_by_month: dict[str, float] = defaultdict(float)
     for t in income:
         date = t.get("date")
-        if date:
-            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+        month_key = _month_key(date)
+        if month_key:
             income_by_month[month_key] += float(t.get("amount") or 0)
 
     # This-month values (for dashboard monthly summary)
@@ -220,17 +242,11 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
         if not date:
             continue
 
-        if hasattr(date, "strftime"):
-            day_key = date.strftime("%Y-%m-%d")
-            iso_year, iso_week, _ = date.isocalendar()
-            week_key = f"{iso_year}-W{iso_week:02d}"
-        else:
-            date_str = str(date)
-            day_key = date_str[:10]
-            week_key = day_key[:7]
-
-        income_by_day[day_key] += float(t.get("amount") or 0)
-        income_by_week[week_key] += float(t.get("amount") or 0)
+        day_key, week_key = _day_key_and_week_key(date)
+        if day_key:
+            income_by_day[day_key] += float(t.get("amount") or 0)
+        if week_key:
+            income_by_week[week_key] += float(t.get("amount") or 0)
 
     # Calculate SAVINGS by month (income - expenses)
     all_months = set(income_by_month.keys()) | set(by_month.keys())
@@ -252,8 +268,8 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
     for t in expenses:
         date = t.get("date")
         category = str(t.get("category") or "Uncategorized")
-        if date:
-            month_key = date.strftime("%Y-%m") if hasattr(date, "strftime") else str(date)[:7]
+        month_key = _month_key(date)
+        if month_key:
             by_category_month[month_key][category] += float(t.get("amount") or 0)
 
     # Convert to regular dict for JSON serialization
