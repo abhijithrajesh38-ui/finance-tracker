@@ -97,6 +97,7 @@ function Budget({ userId }) {
         });
         fetchBudgets();
       } else {
+        // Show error message from backend
         alert(data.message || 'Failed to save budget');
       }
     } catch (error) {

@@ -92,12 +92,9 @@ function Dashboard({ user, onLogout }) {
       setBudgetAlerts(data);
       
       // Calculate new alerts (not in last seen)
+      // Use budgetId to track individual budgets, not just category/month/year
       const newAlerts = data.filter(alert => 
-        !lastSeen.some(seen => 
-          seen.category === alert.category && 
-          seen.month === alert.month && 
-          seen.year === alert.year
-        )
+        !lastSeen.some(seen => seen.budgetId === alert.budgetId)
       );
       
       // Get current bills to calculate total
@@ -150,11 +147,7 @@ function Dashboard({ user, onLogout }) {
       const lastSeenAlerts = lastSeenAlertsStr ? JSON.parse(lastSeenAlertsStr) : [];
       
       const newAlerts = budgetAlerts.filter(alert => 
-        !lastSeenAlerts.some(seen => 
-          seen.category === alert.category && 
-          seen.month === alert.month && 
-          seen.year === alert.year
-        )
+        !lastSeenAlerts.some(seen => seen.budgetId === alert.budgetId)
       );
       
       // Update unread count
@@ -503,7 +496,9 @@ function Dashboard({ user, onLogout }) {
                   {upcomingBills.length > 0 && (
                     <>
                       <div className="notification-header">Upcoming Bills</div>
-                      {upcomingBills.map((bill, index) => {
+                      {upcomingBills
+                        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                        .map((bill, index) => {
                         const daysUntil = Math.ceil((new Date(bill.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
                         return (
                           <div key={`bill-${index}`} className="notification-item">
