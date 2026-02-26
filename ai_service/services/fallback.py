@@ -370,7 +370,16 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
             f"Average monthly income: {fmt_money(stats.get('avgMonthlyIncome', 0))}"
         )
 
-    # Handle maximum/minimum queries
+    # Handle "last expense" / "latest transaction" / "most recent" queries
+    if ("last" in q or "latest" in q or "most recent" in q) and ("expense" in q or "transaction" in q or "spent" in q):
+        recent = insights.get("raw", {}).get("recentTransactions", [])
+        # Filter to expenses only
+        expense_transactions = [t for t in recent if t.get("type") == "expense"]
+        if expense_transactions:
+            last = expense_transactions[0]  # Already sorted by date descending
+            date_str = last.get("date", "")[:10] if last.get("date") else "Unknown date"
+            return f"Your last expense was {fmt_money(last.get('amount', 0))} for {last.get('category', 'Unknown')} - {last.get('description', 'No description')} on {date_str}."
+        return "I couldn't find any recent expenses in your records."
     if "max" in q or "highest" in q or "most expensive" in q:
         stats = summary.get("statistics", {})
         if "transaction" in q or "expense" in q:

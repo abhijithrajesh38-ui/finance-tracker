@@ -4,3 +4,8 @@ pymongo[srv]==4.8.0
 python-dotenv==1.0.1
 pydantic==2.10.6
 google-generativeai==0.8.4
+python-multipart==0.0.9
+easyocr==1.7.1
+pillow==10.4.0
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
