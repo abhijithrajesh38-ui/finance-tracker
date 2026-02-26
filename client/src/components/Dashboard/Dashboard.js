@@ -8,6 +8,7 @@ import Report from '../Report/Report';
 import Compare from '../Compare/Compare';
 import Bills from '../Bills/Bills';
 import Goals from '../Goals/Goals';
+import blackfinLogo from '../../assets/images/blackfin.svg';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
   MdNotifications, MdPerson, MdWarning, MdArrowDownward, MdArrowUpward
@@ -92,12 +93,9 @@ function Dashboard({ user, onLogout }) {
       setBudgetAlerts(data);
       
       // Calculate new alerts (not in last seen)
+      // Use budgetId to track individual budgets, not just category/month/year
       const newAlerts = data.filter(alert => 
-        !lastSeen.some(seen => 
-          seen.category === alert.category && 
-          seen.month === alert.month && 
-          seen.year === alert.year
-        )
+        !lastSeen.some(seen => seen.budgetId === alert.budgetId)
       );
       
       // Get current bills to calculate total
@@ -150,11 +148,7 @@ function Dashboard({ user, onLogout }) {
       const lastSeenAlerts = lastSeenAlertsStr ? JSON.parse(lastSeenAlertsStr) : [];
       
       const newAlerts = budgetAlerts.filter(alert => 
-        !lastSeenAlerts.some(seen => 
-          seen.category === alert.category && 
-          seen.month === alert.month && 
-          seen.year === alert.year
-        )
+        !lastSeenAlerts.some(seen => seen.budgetId === alert.budgetId)
       );
       
       // Update unread count
@@ -407,52 +401,76 @@ function Dashboard({ user, onLogout }) {
 
   if (currentPage === 'transactions') {
     return (
-      <div className="dashboard">
-        <Sidebar currentPage="transactions" onNavigate={setCurrentPage} />
-        <main className="main-content">
-          <Transactions userId={user.id} onTransactionChange={fetchTransactions} />
-        </main>
-      </div>
+      <>
+        <div className="dashboard">
+          <Sidebar currentPage="transactions" onNavigate={setCurrentPage} />
+          <main className="main-content">
+            <Transactions userId={user.id} onTransactionChange={fetchTransactions} />
+          </main>
+        </div>
+        <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+          <img src={blackfinLogo} alt="Finn AI" />
+          <span className="finn-tooltip">Hey! I'm Finn</span>
+        </button>
+      </>
     );
   }
 
   if (currentPage === 'budget') {
     return (
-      <div className="dashboard">
-        <Sidebar currentPage="budget" onNavigate={setCurrentPage} />
-        <main className="main-content">
-          <Budget userId={user.id} />
-        </main>
-      </div>
+      <>
+        <div className="dashboard">
+          <Sidebar currentPage="budget" onNavigate={setCurrentPage} />
+          <main className="main-content">
+            <Budget userId={user.id} />
+          </main>
+        </div>
+        <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+          <img src={blackfinLogo} alt="Finn AI" />
+          <span className="finn-tooltip">Hey! I'm Finn</span>
+        </button>
+      </>
     );
   }
 
   if (currentPage === 'report') {
     return (
-      <div className="dashboard">
-        <Sidebar currentPage="report" onNavigate={setCurrentPage} />
-        <main className="main-content" style={{ padding: 0 }}>
-          <Report userId={user.id} />
-        </main>
-      </div>
+      <>
+        <div className="dashboard">
+          <Sidebar currentPage="report" onNavigate={setCurrentPage} />
+          <main className="main-content" style={{ padding: 0 }}>
+            <Report userId={user.id} />
+          </main>
+        </div>
+        <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+          <img src={blackfinLogo} alt="Finn AI" />
+          <span className="finn-tooltip">Hey! I'm Finn</span>
+        </button>
+      </>
     );
   }
 
   if (currentPage === 'compare') {
     return (
-      <div className="dashboard">
-        <Sidebar currentPage="compare" onNavigate={setCurrentPage} />
-        <main className="main-content" style={{ padding: 0 }}>
-          <Compare userId={user.id} />
-        </main>
-      </div>
+      <>
+        <div className="dashboard">
+          <Sidebar currentPage="compare" onNavigate={setCurrentPage} />
+          <main className="main-content" style={{ padding: 0 }}>
+            <Compare userId={user.id} />
+          </main>
+        </div>
+        <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+          <img src={blackfinLogo} alt="Finn AI" />
+          <span className="finn-tooltip">Hey! I'm Finn</span>
+        </button>
+      </>
     );
   }
 
   if (currentPage === 'finn') {
     return (
       <div className="dashboard">
-        <Sidebar currentPage="finn" onNavigate={setCurrentPage} />
+        <Sidebar currentPage="dashboard" onNavigate={setCurrentPage} />
         <Finn userId={user.id} />
       </div>
     );
@@ -460,27 +478,40 @@ function Dashboard({ user, onLogout }) {
 
   if (currentPage === 'bills') {
     return (
-      <div className="dashboard">
-        <Sidebar currentPage="bills" onNavigate={setCurrentPage} />
-        <main className="main-content" style={{ padding: 0 }}>
-          <Bills userId={user.id} />
-        </main>
-      </div>
+      <>
+        <div className="dashboard">
+          <Sidebar currentPage="bills" onNavigate={setCurrentPage} />
+          <main className="main-content" style={{ padding: 0 }}>
+            <Bills userId={user.id} />
+          </main>
+        </div>
+        <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+          <img src={blackfinLogo} alt="Finn AI" />
+          <span className="finn-tooltip">Hey! I'm Finn</span>
+        </button>
+      </>
     );
   }
 
   if (currentPage === 'goals') {
     return (
-      <div className="dashboard">
-        <Sidebar currentPage="goals" onNavigate={setCurrentPage} />
-        <main className="main-content" style={{ padding: 0 }}>
-          <Goals userId={user.id} />
-        </main>
-      </div>
+      <>
+        <div className="dashboard">
+          <Sidebar currentPage="goals" onNavigate={setCurrentPage} />
+          <main className="main-content" style={{ padding: 0 }}>
+            <Goals userId={user.id} />
+          </main>
+        </div>
+        <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+          <img src={blackfinLogo} alt="Finn AI" />
+          <span className="finn-tooltip">Hey! I'm Finn</span>
+        </button>
+      </>
     );
   }
 
   return (
+    <>
     <div className="dashboard">
       <Sidebar currentPage="dashboard" onNavigate={setCurrentPage} />
 
@@ -503,7 +534,9 @@ function Dashboard({ user, onLogout }) {
                   {upcomingBills.length > 0 && (
                     <>
                       <div className="notification-header">Upcoming Bills</div>
-                      {upcomingBills.map((bill, index) => {
+                      {upcomingBills
+                        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                        .map((bill, index) => {
                         const daysUntil = Math.ceil((new Date(bill.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
                         return (
                           <div key={`bill-${index}`} className="notification-item">
@@ -789,6 +822,11 @@ function Dashboard({ user, onLogout }) {
         </div>
       </main>
     </div>
+    <button className="finn-floating-btn" onClick={() => setCurrentPage('finn')} title="Hey! I'm Finn">
+      <img src={blackfinLogo} alt="Finn AI" />
+      <span className="finn-tooltip">Hey! I'm Finn</span>
+    </button>
+    </>
   );
 }
 

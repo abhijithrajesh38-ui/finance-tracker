@@ -61,16 +61,34 @@ export const getBudgets = async (req, res) => {
       type: 'expense'
     }).lean();
     
+    console.log('=== BUDGET DEBUG ===');
+    console.log('User ID:', userId);
+    console.log('Total budgets:', budgets.length);
+    console.log('Total expense transactions:', transactions.length);
+    
     // Calculate spent amount for each budget efficiently
     const budgetsWithSpent = budgets.map(budget => {
+      console.log(`\nChecking budget: "${budget.category}" (Month: ${budget.month}, Year: ${budget.year})`);
+      
       const budgetTransactions = transactions.filter(t => {
         const tDate = new Date(t.date);
-        return t.category === budget.category &&
-               tDate >= new Date(budget.year, budget.month - 1, 1) &&
-               tDate < new Date(budget.year, budget.month, 1);
+        // Case-insensitive and trimmed category comparison
+        const transactionCategory = (t.category || '').trim().toLowerCase();
+        const budgetCategory = (budget.category || '').trim().toLowerCase();
+        
+        const categoryMatch = transactionCategory === budgetCategory;
+        const dateInRange = tDate >= new Date(budget.year, budget.month - 1, 1) &&
+                           tDate < new Date(budget.year, budget.month, 1);
+        
+        if (categoryMatch) {
+          console.log(`  Found matching category transaction: "${t.category}", Amount: ${t.amount}, Date: ${t.date}, In date range: ${dateInRange}`);
+        }
+        
+        return categoryMatch && dateInRange;
       });
       
       const spent = budgetTransactions.reduce((sum, t) => sum + t.amount, 0);
+      console.log(`  Total spent for "${budget.category}": ${spent}`);
       
       return {
         ...budget,
@@ -78,8 +96,11 @@ export const getBudgets = async (req, res) => {
       };
     });
     
+    console.log('=== END DEBUG ===\n');
+    
     res.json(budgetsWithSpent);
   } catch (error) {
+    console.error('Error in getBudgets:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -101,7 +122,11 @@ export const getBudgetAlerts = async (req, res) => {
     for (let budget of budgets) {
       const budgetTransactions = transactions.filter(t => {
         const tDate = new Date(t.date);
-        return t.category === budget.category &&
+        // Case-insensitive and trimmed category comparison
+        const transactionCategory = (t.category || '').trim().toLowerCase();
+        const budgetCategory = (budget.category || '').trim().toLowerCase();
+        
+        return transactionCategory === budgetCategory &&
                tDate >= new Date(budget.year, budget.month - 1, 1) &&
                tDate < new Date(budget.year, budget.month, 1);
       });
@@ -110,6 +135,14 @@ export const getBudgetAlerts = async (req, res) => {
       const percentage = (spent / budget.limit) * 100;
       
       if (percentage >= budget.alertAt) {
+        // Find the most recent transaction that contributed to this alert
+        const sortedTransactions = budgetTransactions.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        const latestTransactionTime = sortedTransactions.length > 0 
+          ? new Date(sortedTransactions[0].date).getTime()
+          : Date.now();
+        
         alerts.push({
           budgetId: budget._id,
           category: budget.category,
@@ -117,10 +150,15 @@ export const getBudgetAlerts = async (req, res) => {
           limit: budget.limit,
           percentage: percentage.toFixed(1),
           month: budget.month,
-          year: budget.year
+          year: budget.year,
+          alertAt: budget.alertAt,
+          triggeredAt: latestTransactionTime
         });
       }
     }
+    
+    // Sort alerts by most recently triggered (latest transaction) first
+    alerts.sort((a, b) => b.triggeredAt - a.triggeredAt);
     
     res.json(alerts);
   } catch (error) {
@@ -132,7 +170,20 @@ export const getBudgetAlerts = async (req, res) => {
 export const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, limit, month, year, alertAt } = req.body;
+    const { category, limit, month, year, alertAt, userId } = req.body;
+
+    // Check if another budget exists with same category/month/year (excluding current budget)
+    const existingBudget = await Budget.findOne({ 
+      userId, 
+      category, 
+      month, 
+      year,
+      _id: { $ne: id }  // Exclude current budget from check
+    });
+    
+    if (existingBudget) {
+      return res.status(400).json({ message: 'Budget already exists for this category and period' });
+    }
 
     const budget = await Budget.findByIdAndUpdate(
       id,

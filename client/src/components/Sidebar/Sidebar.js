@@ -1,6 +1,5 @@
 import './Sidebar.css';
 import logo from '../../assets/images/Vector.svg';
-import whitefin from '../../assets/images/whitefin.svg';
 import { MdDashboard, MdAttachMoney, MdAccountBalanceWallet, MdEco, MdDescription, MdCompareArrows, MdAlarm, MdSavings } from 'react-icons/md';
 
 function Sidebar({ currentPage, onNavigate }) {
@@ -49,13 +48,6 @@ function Sidebar({ currentPage, onNavigate }) {
           onClick={() => onNavigate('goals')}
         >
           <span><MdSavings /></span> Saving Goals
-        </div>
-        <div className="nav-separator"></div>
-        <div 
-          className={`nav-item ${currentPage === 'finn' ? 'active' : ''}`}
-          onClick={() => onNavigate('finn')}
-        >
-          <span><img src={whitefin} alt="Finn" className="finn-nav-icon" /></span> Finn
         </div>
       </nav>
     </aside>
