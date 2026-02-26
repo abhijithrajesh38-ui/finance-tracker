@@ -31,7 +31,7 @@ const transactionSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'card', 'bank', 'other'],
+    enum: ['cash', 'card', 'bank', 'upi', 'other'],
     default: 'cash'
   },
   tags: [{

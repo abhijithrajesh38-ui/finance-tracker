@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import os
 import re
+import io
 from datetime import datetime, timedelta
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from services.db import get_db
 from services.insights import build_insights
-from services.gemini_client import answer_query
+from services.gemini_client import answer_query, extract_transaction_from_text
 from services.fallback import build_fallback_answer
 
 load_dotenv()
@@ -124,6 +125,91 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     userId: str = Field(..., min_length=1)
     question: str = Field(..., min_length=1)
+
+
+@app.post("/receipt/parse")
+async def receipt_parse(file: UploadFile = File(...)) -> dict[str, Any]:
+    if not file:
+        raise HTTPException(status_code=400, detail="file is required")
+
+    try:
+        content = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"failed to read file: {e}")
+
+    if not content:
+        raise HTTPException(status_code=400, detail="empty file")
+
+    try:
+        import numpy as np
+        from PIL import Image
+        import easyocr
+
+        img = Image.open(io.BytesIO(content)).convert("RGB")
+        img_arr = np.array(img)
+
+        if not hasattr(receipt_parse, "_easyocr_reader"):
+            receipt_parse._easyocr_reader = easyocr.Reader(["en"], gpu=False)  # type: ignore[attr-defined]
+        reader = receipt_parse._easyocr_reader  # type: ignore[attr-defined]
+
+        results = reader.readtext(img_arr)
+        receipt_text = "\n".join([r[1] for r in results if r and len(r) > 1])
+        if not receipt_text.strip():
+            raise RuntimeError("EasyOCR produced empty text")
+
+        parsed = extract_transaction_from_text(receipt_text=receipt_text)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"receipt parsing failed: {e}")
+
+    def _norm_payment_method(pm: Any) -> str | None:
+        if not pm:
+            return None
+        v = str(pm).strip().lower()
+        if v in {"cash", "card", "bank", "upi", "other"}:
+            return v
+        if "upi" in v:
+            return "upi"
+        if "card" in v or "credit" in v or "debit" in v:
+            return "card"
+        if "cash" in v:
+            return "cash"
+        if "bank" in v or "transfer" in v or "netbank" in v:
+            return "bank"
+        return "other"
+
+    def _norm_type(t: Any) -> str:
+        v = str(t or "expense").strip().lower()
+        return "income" if v == "income" else "expense"
+
+    def _to_float(x: Any) -> float | None:
+        try:
+            return float(x)
+        except Exception:
+            return None
+
+    transaction = {
+        "type": _norm_type(parsed.get("type")),
+        "category": (parsed.get("category") or None),
+        "amount": _to_float(parsed.get("amount")),
+        "description": (parsed.get("description") or "").strip(),
+        "date": parsed.get("date") or None,
+        "paymentMethod": _norm_payment_method(parsed.get("paymentMethod")),
+        "categoryConfidence": parsed.get("categoryConfidence"),
+    }
+
+    missing = []
+    if not transaction.get("amount") or transaction["amount"] <= 0:
+        missing.append("amount")
+    if not transaction.get("description"):
+        missing.append("description")
+    if not transaction.get("date"):
+        missing.append("date")
+    if not transaction.get("paymentMethod"):
+        missing.append("paymentMethod")
+    if not transaction.get("category"):
+        missing.append("category")
+
+    return {"transaction": transaction, "missing": missing, "ocrText": receipt_text}
 
 
 @app.get("/health")

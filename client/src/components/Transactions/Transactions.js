@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import './Transactions.css';
 import AddTransactionModal from './AddTransactionModal';
-import { MdDelete, MdCalendarToday, MdArrowDownward, MdArrowUpward } from 'react-icons/md';
+import { MdDelete, MdCalendarToday, MdArrowDownward, MdArrowUpward, MdDocumentScanner } from 'react-icons/md';
 
 function Transactions({ userId, onTransactionChange }) {
   const [filter, setFilter] = useState('Month');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalPrefill, setModalPrefill] = useState(null);
+  const [modalAutoSubmit, setModalAutoSubmit] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scanLoading, setScanLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -18,9 +21,13 @@ function Transactions({ userId, onTransactionChange }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [successTitle, setSuccessTitle] = useState('Transaction Created');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmTransaction, setConfirmTransaction] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const fileInputRef = useRef(null);
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -43,6 +50,131 @@ function Transactions({ userId, onTransactionChange }) {
       console.error('Error fetching transactions:', error);
       setLoading(false);
     }
+  };
+
+  const openAddModal = () => {
+    setModalPrefill(null);
+    setModalAutoSubmit(false);
+    setIsModalOpen(true);
+  };
+
+  const openEditModalWithPrefill = (prefill) => {
+    setModalPrefill(prefill);
+    setModalAutoSubmit(false);
+    setIsModalOpen(true);
+  };
+
+  const handleScanClick = () => {
+    if (scanLoading) return;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleScanFileSelected = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setScanLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for EasyOCR
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const resp = await fetch('http://localhost:8000/receipt/parse', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const data = await resp.json();
+      if (!resp.ok) {
+        const msg = data.detail || data.message || 'Receipt scan failed';
+        throw new Error(msg);
+      }
+
+      const t = (data && data.transaction) ? data.transaction : {};
+
+      const prefill = {
+        type: t.type || 'expense',
+        category: t.category || '',
+        amount: (t.amount != null ? String(t.amount) : ''),
+        description: t.description || '',
+        date: t.date || new Date().toISOString().split('T')[0],
+        paymentMethod: t.paymentMethod || 'cash'
+      };
+
+      setConfirmTransaction(prefill);
+      setShowConfirmModal(true);
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        alert('Scan timed out. EasyOCR takes time on first run. Please try again.');
+      } else {
+        console.error('Scan error:', err);
+        alert(err.message || 'Receipt scan failed');
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setScanLoading(false);
+    }
+  };
+
+  const createTransactionDirectly = async (prefill) => {
+    setConfirmLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...prefill,
+          userId,
+          amount: parseFloat(prefill.amount)
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create transaction');
+      }
+
+      setShowConfirmModal(false);
+      setConfirmTransaction(null);
+      fetchTransactions();
+      setSuccessTitle('Transaction Created');
+      setSuccessMessage(`Transaction "${prefill.description}" has been added successfully.`);
+      setShowSuccessModal(true);
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
+  const handleConfirmYes = async () => {
+    if (!confirmTransaction) return;
+
+    const missingRequired =
+      !confirmTransaction.type ||
+      !confirmTransaction.category ||
+      !confirmTransaction.amount ||
+      !confirmTransaction.description ||
+      !confirmTransaction.date;
+
+    if (missingRequired) {
+      setShowConfirmModal(false);
+      openEditModalWithPrefill(confirmTransaction);
+      return;
+    }
+
+    await createTransactionDirectly(confirmTransaction);
+  };
+
+  const handleConfirmNo = () => {
+    if (!confirmTransaction) return;
+    setShowConfirmModal(false);
+    openEditModalWithPrefill(confirmTransaction);
   };
 
   const handleTransactionSuccess = (transactionData) => {
@@ -269,7 +401,19 @@ function Transactions({ userId, onTransactionChange }) {
           <div className="date">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
           <h1>Transactions</h1>
         </div>
-        <button className="add-btn" onClick={() => setIsModalOpen(true)}>+ Add Transactions</button>
+        <div className="header-actions">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleScanFileSelected}
+          />
+          <button className="scan-btn" onClick={handleScanClick} disabled={scanLoading} title="Scan receipt">
+            <MdDocumentScanner />
+          </button>
+          <button className="add-btn" onClick={openAddModal}>+ Add Transactions</button>
+        </div>
       </header>
 
       <AddTransactionModal
@@ -277,6 +421,8 @@ function Transactions({ userId, onTransactionChange }) {
         onClose={() => setIsModalOpen(false)}
         userId={userId}
         onSuccess={handleTransactionSuccess}
+        prefill={modalPrefill}
+        autoSubmit={modalAutoSubmit}
       />
 
       <div className="filter-tabs">
@@ -443,6 +589,23 @@ function Transactions({ userId, onTransactionChange }) {
         </div>
       </div>
 
+      {scanLoading && (
+        <div className="modal-overlay">
+          <div className="success-modal-content" style={{ textAlign: 'center' }}>
+            <div className="success-icon" style={{ margin: '20px 0' }}>
+              <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                <circle cx="30" cy="30" r="30" fill="#e8e8e8"/>
+                <text x="30" y="38" textAnchor="middle" fontSize="24">📄</text>
+              </svg>
+            </div>
+            <h2>Scanning Receipt...</h2>
+            <p className="success-message" style={{ marginBottom: '10px' }}>
+              Extracting text with EasyOCR (first scan takes ~30s)
+            </p>
+            <p style={{ color: '#999', fontSize: '13px' }}>Please wait...</p>
+          </div>
+        </div>
+      )}
       {showSuccessModal && (
         <div className="modal-overlay" onClick={() => setShowSuccessModal(false)}>
           <div className="success-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -473,6 +636,48 @@ function Transactions({ userId, onTransactionChange }) {
             <div className="delete-modal-actions">
               <button className="cancel-btn" onClick={cancelDelete}>Cancel</button>
               <button className="confirm-delete-btn" onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal && confirmTransaction && (
+        <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
+          <div className="confirm-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Is this transaction correct?</h2>
+            <div className="confirm-details">
+              <div className="confirm-row">
+                <span className="confirm-label">Type</span>
+                <span className="confirm-value">{confirmTransaction.type}</span>
+              </div>
+              <div className="confirm-row">
+                <span className="confirm-label">Amount</span>
+                <span className="confirm-value">₹{confirmTransaction.amount || '-'}</span>
+              </div>
+              <div className="confirm-row">
+                <span className="confirm-label">Category</span>
+                <span className="confirm-value">{confirmTransaction.category || 'Not detected'}</span>
+              </div>
+              <div className="confirm-row">
+                <span className="confirm-label">Payment</span>
+                <span className="confirm-value">{confirmTransaction.paymentMethod || '-'}</span>
+              </div>
+              <div className="confirm-row full">
+                <span className="confirm-label">Description</span>
+                <span className="confirm-value">{confirmTransaction.description || '-'}</span>
+              </div>
+              <div className="confirm-row full">
+                <span className="confirm-label">Date</span>
+                <span className="confirm-value">{confirmTransaction.date || '-'}</span>
+              </div>
+            </div>
+            <div className="confirm-modal-actions">
+              <button className="confirm-btn-secondary" onClick={handleConfirmNo} disabled={confirmLoading}>
+                No, edit
+              </button>
+              <button className="confirm-btn-primary" onClick={handleConfirmYes} disabled={confirmLoading}>
+                {confirmLoading ? 'Adding...' : 'Yes, add'}
+              </button>
             </div>
           </div>
         </div>

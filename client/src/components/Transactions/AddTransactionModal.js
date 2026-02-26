@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './AddTransactionModal.css';
 
-function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
-  const [formData, setFormData] = useState({
+function AddTransactionModal({ isOpen, onClose, userId, onSuccess, prefill, autoSubmit }) {
+  const defaultFormData = {
     type: 'expense',
     category: '',
     amount: '',
@@ -10,6 +10,9 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'cash',
     recurring: false
+  };
+  const [formData, setFormData] = useState({
+    ...defaultFormData
   });
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,6 +23,23 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
       fetchCategories();
     }
   }, [isOpen, userId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!prefill) return;
+
+    setFormData(prev => ({
+      ...prev,
+      ...prefill,
+      category: prefill.category || ''
+    }));
+
+    if (!prefill.category) {
+      setError('Please choose a category to continue');
+    } else {
+      setError('');
+    }
+  }, [isOpen, prefill]);
 
   const fetchCategories = async () => {
     try {
@@ -40,7 +60,7 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setError('');
     setLoading(true);
 
@@ -72,15 +92,7 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
 
       if (response.ok) {
         // Reset form
-        setFormData({
-          type: 'expense',
-          category: '',
-          amount: '',
-          description: '',
-          date: new Date().toISOString().split('T')[0],
-          paymentMethod: 'cash',
-          recurring: false
-        });
+        setFormData({ ...defaultFormData });
         onSuccess(formData);
         onClose();
       } else {
@@ -97,6 +109,23 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess }) {
     setError('');
     onClose();
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!autoSubmit) return;
+    if (loading) return;
+
+    const canSubmit =
+      formData.type &&
+      formData.category &&
+      formData.amount &&
+      formData.description &&
+      formData.date;
+
+    if (canSubmit) {
+      handleSubmit();
+    }
+  }, [isOpen, autoSubmit, formData, loading]);
 
   if (!isOpen) return null;
 
