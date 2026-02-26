@@ -97,6 +97,19 @@ export const getGoals = async (req, res) => {
 export const createGoal = async (req, res) => {
   try {
     console.log('Creating goal with data:', req.body);
+    
+    // Check for duplicate goal name for this user (case-insensitive)
+    const existingGoal = await Goal.findOne({
+      userId: req.body.userId,
+      name: { $regex: new RegExp(`^${req.body.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    
+    if (existingGoal) {
+      return res.status(400).json({ 
+        message: `A goal named "${req.body.name}" already exists. Please use a different name.` 
+      });
+    }
+    
     const goal = new Goal(req.body);
     await goal.save();
     console.log('Goal created successfully:', goal);
@@ -111,6 +124,22 @@ export const createGoal = async (req, res) => {
 export const updateGoal = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // If name is being changed, check for duplicates (case-insensitive)
+    if (req.body.name) {
+      const existingGoal = await Goal.findOne({
+        userId: req.body.userId,
+        name: { $regex: new RegExp(`^${req.body.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        _id: { $ne: id } // Exclude current goal
+      });
+      
+      if (existingGoal) {
+        return res.status(400).json({ 
+          message: `A goal named "${req.body.name}" already exists. Please use a different name.` 
+        });
+      }
+    }
+    
     // Don't allow updating currentAmount or status manually
     const { currentAmount, status, ...updateData } = req.body;
     const goal = await Goal.findByIdAndUpdate(id, updateData, { new: true });

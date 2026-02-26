@@ -25,8 +25,13 @@ export const createBudget = async (req, res) => {
       return res.status(400).json({ message: 'Year is required' });
     }
 
-    // Check if budget already exists for this category/month/year
-    const existingBudget = await Budget.findOne({ userId, category, month, year });
+    // Check if budget already exists for this category/month/year (case-insensitive)
+    const existingBudget = await Budget.findOne({ 
+      userId, 
+      category: { $regex: new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      month, 
+      year 
+    });
     if (existingBudget) {
       return res.status(400).json({ message: 'Budget already exists for this category and period' });
     }
@@ -172,10 +177,10 @@ export const updateBudget = async (req, res) => {
     const { id } = req.params;
     const { category, limit, month, year, alertAt, userId } = req.body;
 
-    // Check if another budget exists with same category/month/year (excluding current budget)
+    // Check if another budget exists with same category/month/year (excluding current budget, case-insensitive)
     const existingBudget = await Budget.findOne({ 
       userId, 
-      category, 
+      category: { $regex: new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
       month, 
       year,
       _id: { $ne: id }  // Exclude current budget from check

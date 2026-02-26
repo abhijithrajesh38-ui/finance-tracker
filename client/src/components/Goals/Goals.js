@@ -22,7 +22,9 @@ function Goals({ userId }) {
     try {
       const response = await fetch(`http://localhost:5000/api/goals?userId=${userId}`);
       const data = await response.json();
-      setGoals(data);
+      // Sort by target date (closest first)
+      const sortedGoals = data.sort((a, b) => new Date(a.targetDate) - new Date(b.targetDate));
+      setGoals(sortedGoals);
       
       // Allocate savings after fetching goals
       await allocateSavings();
@@ -42,7 +44,9 @@ function Goals({ userId }) {
         // Fetch goals again to get updated amounts
         const goalsResponse = await fetch(`http://localhost:5000/api/goals?userId=${userId}`);
         const updatedGoals = await goalsResponse.json();
-        setGoals(updatedGoals);
+        // Sort by target date (closest first)
+        const sortedGoals = updatedGoals.sort((a, b) => new Date(a.targetDate) - new Date(b.targetDate));
+        setGoals(sortedGoals);
       }
     } catch (error) {
       console.error('Error allocating savings:', error);
