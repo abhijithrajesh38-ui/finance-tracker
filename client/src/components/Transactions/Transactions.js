@@ -373,7 +373,6 @@ function Transactions({ userId, onTransactionChange }) {
           <div className="col-merchant">MERCHANT</div>
           <div className="col-type">IN/OUT</div>
           <div className="col-date">DATE</div>
-          <div className="col-category">CATEGORY</div>
           <div className="col-payment">PAYMENT</div>
           <div className="col-amount">AMOUNT</div>
           <div className="col-actions">ACTIONS</div>
@@ -390,17 +389,15 @@ function Transactions({ userId, onTransactionChange }) {
                 <div className={`merchant-icon ${transaction.type === 'income' ? 'icon-income' : 'icon-expense'}`}>
                   {getIcon(transaction.type)}
                 </div>
-                <span>{transaction.description}</span>
+                <div className="merchant-details">
+                  <span className="merchant-name">{transaction.description}</span>
+                  <span className="merchant-category">{transaction.category}</span>
+                </div>
               </div>
               <div className={`col-type ${transaction.type === 'income' ? 'type-in' : 'type-out'}`}>
                 {transaction.type === 'income' ? 'In' : 'Out'}
               </div>
               <div className="col-date">{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-              <div className="col-category">
-                <span className={`category-badge ${transaction.type === 'income' ? 'badge-green' : 'badge-red'}`}>
-                  {transaction.category}
-                </span>
-              </div>
               <div className="col-payment">
                 <span className="payment-badge">
                   {transaction.paymentMethod ? transaction.paymentMethod.charAt(0).toUpperCase() + transaction.paymentMethod.slice(1) : 'Cash'}

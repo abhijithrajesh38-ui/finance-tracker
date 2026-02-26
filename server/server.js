@@ -9,6 +9,7 @@ import transactionRoutes from './routes/transactions.js';
 import budgetRoutes from './routes/budgets.js';
 import aiRoutes from './routes/ai.js';
 import billRoutes from './routes/bills.js';
+import goalRoutes from './routes/goals.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/bills', billRoutes);
+app.use('/api/goals', goalRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

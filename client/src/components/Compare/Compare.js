@@ -225,29 +225,45 @@ function Compare({ userId }) {
         <div className="summary-grid">
           <div className="change-indicator">
             <div className="change-label">Income Change</div>
-            <div className={`change-value ${data1.income >= data2.income ? 'positive' : 'negative'}`}>
-              {data1.income >= data2.income ? '+' : ''}{calculateChange(data1.income, data2.income)}%
+            <div className={`change-value ${
+              data1.income > data2.income ? 'positive' : 
+              data1.income < data2.income ? 'negative' : 
+              'neutral'
+            }`}>
+              {data1.income > data2.income ? '+' : data1.income < data2.income ? '-' : ''}{Math.abs(calculateChange(data1.income, data2.income))}%
             </div>
           </div>
 
           <div className="change-indicator">
             <div className="change-label">Expense Change</div>
-            <div className={`change-value ${data1.expenses <= data2.expenses ? 'positive' : 'negative'}`}>
-              {data1.expenses >= data2.expenses ? '+' : ''}{calculateChange(data1.expenses, data2.expenses)}%
+            <div className={`change-value ${
+              data1.expenses < data2.expenses ? 'positive' : 
+              data1.expenses > data2.expenses ? 'negative' : 
+              'neutral'
+            }`}>
+              {data1.expenses > data2.expenses ? '+' : data1.expenses < data2.expenses ? '-' : ''}{Math.abs(calculateChange(data1.expenses, data2.expenses))}%
             </div>
           </div>
 
           <div className="change-indicator">
             <div className="change-label">Savings Change</div>
-            <div className={`change-value ${data1.savings >= data2.savings ? 'positive' : 'negative'}`}>
-              {data1.savings >= data2.savings ? '+' : ''}{calculateChange(data1.savings, data2.savings)}%
+            <div className={`change-value ${
+              data1.savings > data2.savings ? 'positive' : 
+              data1.savings < data2.savings ? 'negative' : 
+              'neutral'
+            }`}>
+              {data1.savings > data2.savings ? '+' : data1.savings < data2.savings ? '-' : ''}{Math.abs(calculateChange(data1.savings, data2.savings))}%
             </div>
           </div>
 
           <div className="change-indicator">
             <div className="change-label">Transaction Change</div>
-            <div className={`change-value ${data1.transactionCount >= data2.transactionCount ? 'positive' : 'negative'}`}>
-              {data1.transactionCount >= data2.transactionCount ? '+' : ''}{calculateChange(data1.transactionCount, data2.transactionCount)}%
+            <div className={`change-value ${
+              data1.transactionCount > data2.transactionCount ? 'positive' : 
+              data1.transactionCount < data2.transactionCount ? 'negative' : 
+              'neutral'
+            }`}>
+              {data1.transactionCount > data2.transactionCount ? '+' : data1.transactionCount < data2.transactionCount ? '-' : ''}{Math.abs(calculateChange(data1.transactionCount, data2.transactionCount))}%
             </div>
           </div>
         </div>

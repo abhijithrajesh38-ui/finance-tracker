@@ -74,7 +74,6 @@
 }
 
 .bill-card.upcoming {
-  border-color: #ffa94d;
   background: #fff8f0;
 }
 
@@ -142,7 +141,7 @@
   justify-content: center;
   gap: 6px;
   padding: 10px 16px;
-  background: #16A34A;
+  background: #4E8A5E;
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -153,7 +152,7 @@
 }
 
 .pay-btn:hover {
-  background: #15803d;
+  background: #3d6e4a;
 }
 
 .delete-btn-icon {
@@ -239,7 +238,7 @@
 .recurring-badge {
   padding: 3px 10px;
   background: #dcfce7;
-  color: #16A34A;
+  color: #4E8A5E;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
@@ -264,7 +263,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #16A34A;
+  background: #4E8A5E;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -275,7 +274,7 @@
 }
 
 .pay-btn-small:hover {
-  background: #15803d;
+  background: #3d6e4a;
 }
 
 .empty-message {
@@ -367,36 +366,44 @@
   display: flex;
   gap: 12px;
   margin-top: 24px;
+  justify-content: flex-end;
 }
 
 .cancel-btn,
 .submit-btn {
-  flex: 1;
-  padding: 12px 24px;
+  width: 156px;
+  height: 42px;
   border: none;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 50px;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cancel-btn {
-  background: #f5f5f5;
-  color: #666;
+  background: white;
+  color: #1a1a1a;
+  border: 2px solid #e0e0e0;
 }
 
 .cancel-btn:hover {
-  background: #e0e0e0;
+  background: #f5f5f5;
+  border-color: #999;
 }
 
 .submit-btn {
   background: #1a1a1a;
   color: #fff;
+  border: 2px solid #1a1a1a;
 }
 
 .submit-btn:hover {
   background: #333;
+  border-color: #333;
 }
 
 
