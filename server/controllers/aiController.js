@@ -25,6 +25,31 @@ export const getInsights = async (req, res) => {
   }
 };
 
+export const getFinancialHealth = async (req, res) => {
+  try {
+    const { userId, period } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+
+    const url = new URL('/financial-health', AI_SERVICE_URL);
+    url.searchParams.set('userId', userId);
+    if (period) url.searchParams.set('period', period);
+
+    const resp = await fetch(url);
+    const text = await resp.text();
+
+    if (!resp.ok) {
+      return res.status(resp.status).send(text);
+    }
+
+    res.type('application/json').send(text);
+  } catch (error) {
+    res.status(500).json({ message: 'AI service error', error: error.message });
+  }
+};
+
 export const postQuery = async (req, res) => {
   try {
     const { userId, question } = req.body;
