@@ -51,6 +51,42 @@ function Report({ userId }) {
   const netSavings = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : 0;
 
+  // Calculate yearly income for tax
+  const yearlyTransactions = transactions.filter(t => {
+    const date = new Date(t.date);
+    return date.getFullYear() === selectedYear;
+  });
+
+  const yearlyIncome = yearlyTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  // Indian Tax Calculation (New Regime FY 2024-25)
+  const calculateTax = (income) => {
+    let tax = 0;
+    if (income <= 300000) {
+      tax = 0;
+    } else if (income <= 700000) {
+      tax = (income - 300000) * 0.05;
+    } else if (income <= 1000000) {
+      tax = 20000 + (income - 700000) * 0.10;
+    } else if (income <= 1200000) {
+      tax = 50000 + (income - 1000000) * 0.15;
+    } else if (income <= 1500000) {
+      tax = 80000 + (income - 1200000) * 0.20;
+    } else {
+      tax = 140000 + (income - 1500000) * 0.30;
+    }
+    
+    // Add 4% cess
+    tax = tax * 1.04;
+    return Math.round(tax);
+  };
+
+  const estimatedTax = calculateTax(yearlyIncome);
+  const taxRate = yearlyIncome > 0 ? ((estimatedTax / yearlyIncome) * 100).toFixed(1) : 0;
+  const postTaxIncome = yearlyIncome - estimatedTax;
+
   // Category breakdown
   const categoryData = {};
   filteredTransactions
@@ -93,6 +129,9 @@ function Report({ userId }) {
       ['Total Expenses', `₹${totalExpenses.toLocaleString()}`],
       ['Net Savings', `₹${netSavings.toLocaleString()}`],
       ['Savings Rate', `${savingsRate}%`],
+      ['Estimated Tax', `₹${estimatedTax.toLocaleString()}`],
+      ['Tax Rate', `${taxRate}%`],
+      ['Post-Tax Income', `₹${postTaxIncome.toLocaleString()}`],
       [],
       ['Transactions'],
       ['Date', 'Description', 'Category', 'Type', 'Amount', 'Payment Method'],
@@ -161,6 +200,14 @@ function Report({ userId }) {
           <div class="summary-item">
             <span>Savings Rate:</span>
             <strong>${savingsRate}%</strong>
+          </div>
+          <div class="summary-item">
+            <span>Estimated Tax (${selectedYear}):</span>
+            <strong class="expense">₹${estimatedTax.toLocaleString()}</strong>
+          </div>
+          <div class="summary-item">
+            <span>Post-Tax Income:</span>
+            <strong class="income">₹${postTaxIncome.toLocaleString()}</strong>
           </div>
         </div>
 
@@ -292,6 +339,12 @@ function Report({ userId }) {
           <div className="card-label">Highest Category</div>
           <div className="card-value">{highestCategory[0]}</div>
           <div className="card-change">₹{highestCategory[1].toLocaleString()}</div>
+        </div>
+
+        <div className="summary-card tax-card">
+          <div className="card-label">Estimated Tax ({selectedYear})</div>
+          <div className="card-value">₹{estimatedTax.toLocaleString()}</div>
+          <div className="card-change">Tax Rate {taxRate}% • Post-Tax ₹{postTaxIncome.toLocaleString()}</div>
         </div>
       </div>
 

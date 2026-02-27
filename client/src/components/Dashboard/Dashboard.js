@@ -29,6 +29,7 @@ function Dashboard({ user, onLogout }) {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [upcomingBills, setUpcomingBills] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [goals, setGoals] = useState([]);
 
   console.log('Dashboard user object:', user);
 
@@ -47,6 +48,7 @@ function Dashboard({ user, onLogout }) {
       fetchBudgets();
       fetchAiInsights();
       fetchUpcomingBills();
+      fetchGoals();
     }
   }, [user]);
 
@@ -155,6 +157,18 @@ function Dashboard({ user, onLogout }) {
       updateUnreadCount(newAlerts.length, newBills.length);
     } catch (error) {
       console.error('Error fetching upcoming bills:', error);
+    }
+  };
+
+  const fetchGoals = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/goals?userId=${user.id}`);
+      const data = await response.json();
+      // Sort by target date (closest first) and take top 3
+      const sortedGoals = data.sort((a, b) => new Date(a.targetDate) - new Date(b.targetDate)).slice(0, 3);
+      setGoals(sortedGoals);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
     }
   };
 
@@ -767,18 +781,23 @@ function Dashboard({ user, onLogout }) {
                 <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('goals'); }} className="view-all">VIEW ALL</a>
               </div>
               <div className="savings-goals">
-                <div className="goal-circle">
-                  <div className="circle-progress">100%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
-                <div className="goal-circle">
-                  <div className="circle-progress">75%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
-                <div className="goal-circle">
-                  <div className="circle-progress">70%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
+                {goals.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                    No goals yet. Go to Goals page to create one.
+                  </div>
+                ) : (
+                  goals.map(goal => {
+                    const percentage = goal.targetAmount > 0 
+                      ? Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100) 
+                      : 0;
+                    return (
+                      <div key={goal._id} className="goal-circle">
+                        <div className="circle-progress">{percentage}%</div>
+                        <div className="goal-label">{goal.name.toUpperCase()}</div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
