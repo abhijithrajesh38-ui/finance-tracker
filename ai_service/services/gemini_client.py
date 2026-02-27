@@ -146,6 +146,46 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
         raise  # Re-raise to trigger fallback in main.py
 
 
+def generate_financial_health_explanation(*, prompt: str, max_output_tokens: int) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing environment variable: GEMINI_API_KEY")
+
+    genai.configure(api_key=api_key)
+
+    model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+    generation_config = {
+        "temperature": 0.2,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": max_output_tokens,
+    }
+
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+
+    model = genai.GenerativeModel(
+        model_name,
+        generation_config=generation_config,
+        safety_settings=safety_settings,
+    )
+
+    resp = model.generate_content(prompt)
+    text = (getattr(resp, "text", None) or "").strip()
+    if not text:
+        raise RuntimeError("Empty response from Gemini")
+
+    text = re.sub(r"```[a-zA-Z]*", "", text).replace("```", "").strip()
+    text = re.sub(r"[\U0001F300-\U0001FAFF]", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text
+
+
 def extract_transaction_from_image(*, image_bytes: bytes, mime_type: str = "image/jpeg") -> dict[str, Any]:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:

@@ -8,6 +8,8 @@ import Report from '../Report/Report';
 import Compare from '../Compare/Compare';
 import Bills from '../Bills/Bills';
 import Goals from '../Goals/Goals';
+import FinancialHealthBanner from './FinancialHealthBanner';
+import FinancialHealthBreakdownModal from './FinancialHealthBreakdownModal';
 import blackfinLogo from '../../assets/images/blackfin.svg';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
@@ -30,6 +32,12 @@ function Dashboard({ user, onLogout }) {
   const [upcomingBills, setUpcomingBills] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const [financialHealth, setFinancialHealth] = useState(null);
+  const [financialHealthLoading, setFinancialHealthLoading] = useState(false);
+  const [financialHealthError, setFinancialHealthError] = useState('');
+  const [showHealthBreakdown, setShowHealthBreakdown] = useState(false);
+  const [healthDropNotification, setHealthDropNotification] = useState('');
+
   console.log('Dashboard user object:', user);
 
   // Refresh data when returning to dashboard
@@ -47,8 +55,38 @@ function Dashboard({ user, onLogout }) {
       fetchBudgets();
       fetchAiInsights();
       fetchUpcomingBills();
+      fetchFinancialHealth();
     }
   }, [user]);
+
+  const fetchFinancialHealth = async () => {
+    try {
+      setFinancialHealthLoading(true);
+      setFinancialHealthError('');
+      setHealthDropNotification('');
+
+      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFinancialHealth(null);
+        setFinancialHealthError(data?.message || 'Financial health analysis unavailable.');
+        return;
+      }
+
+      setFinancialHealth(data);
+
+      if (typeof data?.deltaFromPreviousMonth === 'number' && data.deltaFromPreviousMonth < -10) {
+        setHealthDropNotification('Your financial health score decreased significantly this month.');
+      }
+    } catch (error) {
+      setFinancialHealth(null);
+      setFinancialHealthError('Financial health analysis unavailable.');
+      console.error('Error fetching financial health:', error);
+    } finally {
+      setFinancialHealthLoading(false);
+    }
+  };
 
   const fetchAiInsights = async () => {
     try {
@@ -412,6 +450,12 @@ function Dashboard({ user, onLogout }) {
           <img src={blackfinLogo} alt="Finn AI" />
           <span className="finn-tooltip">Hey! I'm Finn</span>
         </button>
+
+        <FinancialHealthBreakdownModal
+          isOpen={showHealthBreakdown}
+          onClose={() => setShowHealthBreakdown(false)}
+          data={financialHealth}
+        />
       </>
     );
   }
@@ -593,6 +637,21 @@ function Dashboard({ user, onLogout }) {
             </div>
           </div>
         </header>
+
+        <div style={{ padding: '0 40px', marginBottom: '18px' }}>
+          {healthDropNotification && (
+            <div className="notification-item" style={{ border: '1px solid #ffe1e1', background: '#fff5f5', borderRadius: '14px' }}>
+              <div className="notification-title"><MdWarning /> Financial Health</div>
+              <div className="notification-text">{healthDropNotification}</div>
+            </div>
+          )}
+          <FinancialHealthBanner
+            data={financialHealth}
+            loading={financialHealthLoading}
+            error={financialHealthError}
+            onViewBreakdown={() => setShowHealthBreakdown(true)}
+          />
+        </div>
 
         <div className="stats-grid">
           <div className="stat-card dark">
@@ -826,6 +885,12 @@ function Dashboard({ user, onLogout }) {
       <img src={blackfinLogo} alt="Finn AI" />
       <span className="finn-tooltip">Hey! I'm Finn</span>
     </button>
+
+    <FinancialHealthBreakdownModal
+      isOpen={showHealthBreakdown}
+      onClose={() => setShowHealthBreakdown(false)}
+      data={financialHealth}
+    />
     </>
   );
 }
