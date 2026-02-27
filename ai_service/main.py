@@ -385,6 +385,108 @@ def _score_for_month(*, summary: dict[str, Any], raw: dict[str, Any], month_key:
     }
 
 
+def _score_for_year(*, summary: dict[str, Any], raw: dict[str, Any], year: int) -> dict[str, Any]:
+    """Calculate financial health score for a full year by aggregating monthly data."""
+    income_by_month: dict[str, Any] = summary.get("incomeByMonth", {}) or {}
+    expense_by_month: dict[str, Any] = summary.get("expenseByMonth", {}) or {}
+
+    # Filter to current year
+    year_income = {k: v for k, v in income_by_month.items() if str(k).startswith(str(year))}
+    year_expense = {k: v for k, v in expense_by_month.items() if str(k).startswith(str(year))}
+
+    total_income = sum(float(v or 0) for v in year_income.values())
+    total_expense = sum(float(v or 0) for v in year_expense.values())
+    net = total_income - total_expense
+    savings_rate_pct = (net / total_income) * 100.0 if total_income > 0 else 0.0
+
+    # Expense volatility across months
+    monthly_expenses = [float(v or 0) for v in year_expense.values()]
+    expense_cv = _cv(monthly_expenses) if len(monthly_expenses) >= 2 else 0.0
+
+    # Income consistency across months
+    monthly_incomes = [float(v or 0) for v in year_income.values() if float(v or 0) > 0]
+    income_cv = _cv(monthly_incomes) if len(monthly_incomes) >= 2 else 0.0
+
+    # Budget adherence across all months in year
+    budgets = raw.get("allBudgets") or []
+    year_budgets = [b for b in budgets if int(b.get("year") or 0) == year]
+
+    total_limit = 0.0
+    total_overspend = 0.0
+    if year_budgets:
+        by_cat_year: dict[str, list[float]] = {}
+        recent = raw.get("recentTransactions") or []
+        for t in recent:
+            if (t.get("type") or "").lower() != "expense":
+                continue
+            date_str = str(t.get("date") or "")
+            if not date_str.startswith(str(year)):
+                continue
+            cat = str(t.get("category") or "Uncategorized").strip().lower()
+            by_cat_year.setdefault(cat, []).append(float(t.get("amount") or 0))
+
+        # Aggregate limits by category across year
+        cat_limits: dict[str, float] = {}
+        for b in year_budgets:
+            cat = str(b.get("category") or "Uncategorized").strip().lower()
+            cat_limits[cat] = cat_limits.get(cat, 0.0) + float(b.get("limit") or 0)
+
+        for cat, lim in cat_limits.items():
+            total_limit += lim
+            spent = sum(by_cat_year.get(cat, []))
+            if spent > lim and lim > 0:
+                total_overspend += (spent - lim)
+
+    overspend_ratio = (total_overspend / total_limit) if total_limit > 0 else 0.0
+
+    # Anomaly detection across all expense days in year
+    expense_by_day: dict[str, Any] = summary.get("expenseByDay", {}) or {}
+    year_expense_days = [float(v or 0) for k, v in expense_by_day.items() if str(k).startswith(str(year))]
+    anomalies = 0
+    if len(year_expense_days) >= 8:
+        m = _mean(year_expense_days)
+        s = _std(year_expense_days)
+        if s > 0:
+            anomalies = sum(1 for v in year_expense_days if ((v - m) / s) >= 2.8 and v > 0)
+
+    base = 50
+
+    savings_value = _clamp((savings_rate_pct - 20.0) / 30.0, -1.0, 1.0)
+    savings_impact = int(round(savings_value * 30))
+
+    expense_value = _clamp(1.0 - (expense_cv / 0.3), -1.0, 1.0)
+    expense_impact = int(round(expense_value * 20))
+
+    income_value = _clamp(1.0 - (income_cv / 0.25), -1.0, 1.0)
+    income_impact = int(round(income_value * 20))
+
+    budget_value = _clamp(1.0 - (overspend_ratio / 0.25), -1.0, 1.0)
+    budget_impact = int(round(budget_value * 15))
+
+    anomaly_penalty = -int(min(15, anomalies * 5))
+
+    score = int(_clamp(float(base + savings_impact + expense_impact + income_impact + budget_impact + anomaly_penalty), 0.0, 100.0))
+
+    return {
+        "score": score,
+        "riskLevel": _risk_level(score),
+        "components": {
+            "savingsRateImpact": savings_impact,
+            "expenseStabilityImpact": expense_impact,
+            "incomeConsistencyImpact": income_impact,
+            "budgetAdherenceImpact": budget_impact,
+            "anomalyPenalty": anomaly_penalty,
+        },
+        "metrics": {
+            "savingsRatePct": round(savings_rate_pct, 1),
+            "expenseVolatility": _volatility_label(expense_cv),
+            "incomeConsistency": _consistency_label(income_cv),
+            "budgetAdherence": _adherence_label(overspend_ratio),
+            "anomalies": anomalies,
+        },
+    }
+
+
 def _fallback_short_explanation(*, score: int, risk_level: str, metrics: dict[str, Any]) -> str:
     sr = metrics.get("savingsRatePct")
     ev = metrics.get("expenseVolatility")
@@ -392,11 +494,41 @@ def _fallback_short_explanation(*, score: int, risk_level: str, metrics: dict[st
     ba = metrics.get("budgetAdherence")
     an = metrics.get("anomalies")
 
-    return (
-        f"Your financial health score is {score}/100 ({risk_level} risk). "
-        f"Savings rate is {sr}%, expense volatility is {ev}, and income consistency is {ic}. "
-        f"Budget adherence is {ba} with {an} anomaly signals detected."
-    )
+    # Build contextual summary
+    parts = [f"Financial Health: {score}/100 ({risk_level} Risk)."]
+
+    # Savings assessment
+    if isinstance(sr, (int, float)):
+        if sr >= 20:
+            parts.append(f"Strong {sr}% savings rate.")
+        else:
+            parts.append(f"Savings rate {sr}% needs improvement.")
+
+    # Key concern identification
+    concerns = []
+    if str(ev).lower() == "high":
+        concerns.append("spending volatility")
+    if str(ic).lower() == "volatile":
+        concerns.append("income inconsistency")
+    if str(ba).lower() == "weak":
+        concerns.append("budget overruns")
+
+    if concerns:
+        parts.append(f"Primary concerns: {', '.join(concerns)}.")
+
+    # Anomaly note
+    if isinstance(an, (int, float)) and an > 0:
+        parts.append(f"{int(an)} unusual spending pattern(s) detected.")
+
+    # Single recommendation
+    if concerns:
+        parts.append(f"Priority: Address {concerns[0]} to improve stability.")
+    elif isinstance(sr, (int, float)) and sr < 20:
+        parts.append("Priority: Increase savings to 20% for better security.")
+    else:
+        parts.append("Maintain current habits and seek optimization opportunities.")
+
+    return " ".join(parts)
 
 
 def _fallback_long_explanation(*, score: int, risk_level: str, metrics: dict[str, Any], components: dict[str, Any]) -> str:
@@ -406,23 +538,125 @@ def _fallback_long_explanation(*, score: int, risk_level: str, metrics: dict[str
     ba = metrics.get("budgetAdherence")
     an = metrics.get("anomalies")
 
-    def _fmt(n: Any) -> str:
-        try:
-            n = int(n)
-        except Exception:
-            return "--"
-        return f"{n:+d}"
+    # Determine risk description
+    risk_descriptions = {
+        "Low": "Your finances are well-managed with strong fundamentals.",
+        "Moderate": "Your finances are stable but there's room for optimization.",
+        "High": "Your finances show warning signs that need attention.",
+        "Critical": "Your finances require immediate corrective action.",
+    }
+    risk_desc = risk_descriptions.get(risk_level, "Review your financial metrics carefully.")
 
-    return (
-        f"Score: {score}/100 ({risk_level} risk). "
-        f"Savings rate: {sr}%. Expense volatility: {ev}. Income consistency: {ic}. "
-        f"Budget adherence: {ba}. Anomalies detected: {an}. "
-        f"Component impacts: Savings Rate {_fmt(components.get('savingsRateImpact'))}, "
-        f"Expense Stability {_fmt(components.get('expenseStabilityImpact'))}, "
-        f"Income Consistency {_fmt(components.get('incomeConsistencyImpact'))}, "
-        f"Budget Adherence {_fmt(components.get('budgetAdherenceImpact'))}, "
-        f"Anomaly Penalty {_fmt(components.get('anomalyPenalty'))}."
-    )
+    # Savings rate analysis
+    if isinstance(sr, (int, float)):
+        if sr >= 30:
+            savings_analysis = f"Excellent savings discipline at {sr}%—you're building wealth faster than most."
+        elif sr >= 20:
+            savings_analysis = f"Healthy savings rate of {sr}%, meeting the recommended 20% benchmark."
+        elif sr >= 10:
+            savings_analysis = f"Modest savings rate of {sr}%. Aim to increase to 20% for financial security."
+        else:
+            savings_analysis = f"Low savings rate of {sr}%. Prioritize emergency fund building immediately."
+    else:
+        savings_analysis = "Savings data unavailable."
+
+    # Expense volatility analysis
+    ev_lower = str(ev).lower()
+    if "low" in ev_lower:
+        expense_analysis = "Spending is consistent and predictable, making budgeting easier."
+    elif "moderate" in ev_lower:
+        expense_analysis = "Spending varies moderately. Consider setting stricter daily spending limits."
+    else:
+        expense_analysis = "High spending volatility detected. Large fluctuations strain cash flow planning."
+
+    # Income consistency analysis
+    ic_lower = str(ic).lower()
+    if "stable" in ic_lower:
+        income_analysis = "Income is reliable and steady, providing a solid foundation for planning."
+    elif "moderate" in ic_lower:
+        income_analysis = "Income has some variability. Build a larger buffer for lean periods."
+    else:
+        income_analysis = "Income is unpredictable. Focus on stabilizing your primary revenue source."
+
+    # Budget adherence analysis
+    ba_lower = str(ba).lower()
+    if "strong" in ba_lower:
+        budget_analysis = "You're staying within budget limits consistently—excellent self-discipline."
+    elif "moderate" in ba_lower:
+        budget_analysis = "Occasional overspending in some categories. Review and adjust budget allocations."
+    else:
+        budget_analysis = "Frequent budget overruns detected. Consider stricter expense tracking."
+
+    # Anomaly analysis
+    if isinstance(an, (int, float)) and an > 0:
+        anomaly_analysis = f"Detected {int(an)} unusual spending spike(s) that deviate significantly from your pattern."
+    else:
+        anomaly_analysis = "No unusual spending patterns detected."
+
+    # Build component breakdown with impact interpretation
+    def _fmt_with_impact(n: Any, name: str) -> str:
+        try:
+            val = int(n)
+        except Exception:
+            return f"{name}: --"
+        
+        if val > 0:
+            return f"{name}: +{val} (positive contribution)"
+        elif val < 0:
+            severity = "significant" if val <= -15 else "moderate" if val <= -8 else "minor"
+            return f"{name}: {val} ({severity} drag)"
+        else:
+            return f"{name}: 0 (neutral)"
+
+    # Construct the detailed breakdown
+    lines = [
+        f"Financial Health Assessment: {score}/100 — {risk_level} Risk",
+        "",
+        f"{risk_desc}",
+        "",
+        "Key Metrics Analysis:",
+        f"• Savings Rate ({sr}%): {savings_analysis}",
+        f"• Expense Volatility ({ev}): {expense_analysis}",
+        f"• Income Consistency ({ic}): {income_analysis}",
+        f"• Budget Adherence ({ba}): {budget_analysis}",
+        f"• Anomalies: {anomaly_analysis}",
+        "",
+        "Score Breakdown (how each factor contributes):",
+        f"• {_fmt_with_impact(components.get('savingsRateImpact'), 'Savings Rate')}",
+        f"• {_fmt_with_impact(components.get('expenseStabilityImpact'), 'Expense Stability')}",
+        f"• {_fmt_with_impact(components.get('incomeConsistencyImpact'), 'Income Consistency')}",
+        f"• {_fmt_with_impact(components.get('budgetAdherenceImpact'), 'Budget Adherence')}",
+        f"• {_fmt_with_impact(components.get('anomalyPenalty'), 'Anomaly Penalty')}",
+        "",
+    ]
+
+    # Add prioritized recommendations based on lowest components
+    recommendations = []
+    component_scores = [
+        ("expenseStabilityImpact", components.get('expenseStabilityImpact'), "stabilize spending patterns"),
+        ("incomeConsistencyImpact", components.get('incomeConsistencyImpact'), "diversify income sources"),
+        ("budgetAdherenceImpact", components.get('budgetAdherenceImpact'), "strengthen budget discipline"),
+        ("savingsRateImpact", components.get('savingsRateImpact'), "increase savings allocation"),
+    ]
+    
+    # Sort by score (ascending) to prioritize worst performers
+    component_scores.sort(key=lambda x: x[1] if isinstance(x[1], (int, float)) else 0)
+    
+    for name, value, action in component_scores[:2]:
+        if isinstance(value, (int, float)) and value < 0:
+            recommendations.append(f"Focus on efforts to {action}—this is your biggest improvement opportunity.")
+
+    if not recommendations:
+        recommendations.append("Maintain your current practices while seeking incremental improvements.")
+
+    if isinstance(an, (int, float)) and an > 0:
+        recommendations.append(f"Review the {int(an)} flagged transaction(s) to understand spending triggers.")
+
+    lines.append("Priority Recommendations:")
+    for i, rec in enumerate(recommendations, 1):
+        lines.append(f"{i}. {rec}")
+
+    return "\n".join(lines)
 
 
 def _is_incomplete_explanation(text: str) -> bool:
@@ -441,9 +675,13 @@ def _is_incomplete_explanation(text: str) -> bool:
 
 
 @app.get("/financial-health")
-def financial_health(userId: str) -> dict[str, Any]:
+def financial_health(userId: str, period: str = "month") -> dict[str, Any]:
     if not userId:
         raise HTTPException(status_code=400, detail="userId is required")
+
+    period = (period or "month").lower().strip()
+    if period not in ("month", "year"):
+        period = "month"
 
     db = get_db()
     ctx = build_insights(db=db, user_id=userId, since=None, load_all=True)
@@ -455,31 +693,56 @@ def financial_health(userId: str) -> dict[str, Any]:
     if not this_month_key or len(this_month_key) < 7:
         raise HTTPException(status_code=500, detail="missing month context")
 
-    current = _score_for_month(summary=summary, raw=raw, month_key=this_month_key)
-    previous = _score_for_month(summary=summary, raw=raw, month_key=last_month_key) if last_month_key else {"score": None}
+    current_year = int(this_month_key[:4])
+    previous_year = current_year - 1
+
+    if period == "year":
+        current = _score_for_year(summary=summary, raw=raw, year=current_year)
+        previous = _score_for_year(summary=summary, raw=raw, year=previous_year)
+        delta = (current["score"] - previous["score"]) if previous.get("score") is not None else None
+        previous_score = previous.get("score")
+    else:
+        current = _score_for_month(summary=summary, raw=raw, month_key=this_month_key)
+        previous = _score_for_month(summary=summary, raw=raw, month_key=last_month_key) if last_month_key else {"score": None}
+        delta = (current["score"] - int(previous["score"])) if previous.get("score") is not None else None
+        previous_score = previous.get("score")
 
     prompt = (
-        "You are a financial risk analyst. Based on: "
-        f"Score: {current['score']} "
-        f"Savings rate: {current['metrics']['savingsRatePct']}% "
-        f"Expense volatility: {current['metrics']['expenseVolatility']} "
-        f"Income consistency: {current['metrics']['incomeConsistency']} "
-        f"Budget adherence: {current['metrics']['budgetAdherence']} "
-        f"Anomalies: {current['metrics']['anomalies']} detected "
-        "Generate a concise 2–3 sentence explanation in plain text. "
-        "Do not use markdown. Do not use emojis. Keep it under 3 lines. Sound professional."
+        "Write a professional financial health summary. Use plain text only. No markdown. No emojis. "
+        "Format: 'Financial Health: <score>/100 (<risk> Risk). ' "
+        "Then add a brief savings assessment and 1-2 primary concerns if any. "
+        "End with a single priority recommendation. Keep to 2-3 sentences total. "
+        f"Score: {current['score']}/100, Risk: {current['riskLevel']}, "
+        f"Savings rate: {current['metrics']['savingsRatePct']}%, "
+        f"Expense volatility: {current['metrics']['expenseVolatility']}, "
+        f"Income consistency: {current['metrics']['incomeConsistency']}, "
+        f"Budget adherence: {current['metrics']['budgetAdherence']}, "
+        f"Anomalies: {current['metrics']['anomalies']}."
     )
 
     long_prompt = (
-        "You are a financial risk analyst. "
-        "Provide a concise professional explanation (4–5 lines) for a dashboard modal based on: "
-        f"Score: {current['score']}. "
-        f"Components: savingsRateImpact {current['components']['savingsRateImpact']}, "
+        "Create a detailed financial health breakdown. Use plain text only. No markdown. No emojis. "
+        "Structure:\n"
+        "1. Header: 'Financial Health Assessment: <score>/100 — <risk> Risk' followed by a brief risk description.\n"
+        "2. 'Key Metrics Analysis:' with bullet points for each metric explaining what it means:\n"
+        "   - Savings Rate: assessment based on the value\n"
+        "   - Expense Volatility: interpretation of stability\n"
+        "   - Income Consistency: reliability assessment\n"
+        "   - Budget Adherence: discipline evaluation\n"
+        "   - Anomalies: note if any detected\n"
+        "3. 'Score Breakdown:' showing how each component impacts the score with descriptive labels.\n"
+        "4. 'Priority Recommendations:' with 2 specific actionable steps prioritized by impact.\n"
+        f"Data: Score {current['score']}/100, Risk {current['riskLevel']}, "
+        f"Savings rate {current['metrics']['savingsRatePct']}%, "
+        f"Expense volatility {current['metrics']['expenseVolatility']}, "
+        f"Income consistency {current['metrics']['incomeConsistency']}, "
+        f"Budget adherence {current['metrics']['budgetAdherence']}, "
+        f"Anomalies {current['metrics']['anomalies']}. "
+        f"Component impacts: savingsRateImpact {current['components']['savingsRateImpact']}, "
         f"expenseStabilityImpact {current['components']['expenseStabilityImpact']}, "
         f"incomeConsistencyImpact {current['components']['incomeConsistencyImpact']}, "
         f"budgetAdherenceImpact {current['components']['budgetAdherenceImpact']}, "
-        f"anomalyPenalty {current['components']['anomalyPenalty']}. "
-        "Plain text only. No markdown. No emojis."
+        f"anomalyPenalty {current['components']['anomalyPenalty']}."
     )
 
     ai_explanation = _fallback_short_explanation(
@@ -526,8 +789,9 @@ def financial_health(userId: str) -> dict[str, Any]:
         "components": current["components"],
         "aiExplanation": ai_explanation,
         "expandedExplanation": expanded_explanation,
-        "previousMonthScore": previous.get("score"),
-        "deltaFromPreviousMonth": (current["score"] - int(previous["score"])) if previous.get("score") is not None else None,
+        "previousMonthScore": previous_score,
+        "deltaFromPreviousMonth": delta,
+        "period": period,
     }
     return payload
 

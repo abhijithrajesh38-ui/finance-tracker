@@ -37,6 +37,7 @@ function Dashboard({ user, onLogout }) {
   const [financialHealthError, setFinancialHealthError] = useState('');
   const [showHealthBreakdown, setShowHealthBreakdown] = useState(false);
   const [healthDropNotification, setHealthDropNotification] = useState('');
+  const [healthPeriod, setHealthPeriod] = useState('month');
 
   console.log('Dashboard user object:', user);
 
@@ -59,13 +60,13 @@ function Dashboard({ user, onLogout }) {
     }
   }, [user]);
 
-  const fetchFinancialHealth = async () => {
+  const fetchFinancialHealth = async (period = healthPeriod) => {
     try {
       setFinancialHealthLoading(true);
       setFinancialHealthError('');
       setHealthDropNotification('');
 
-      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}`);
+      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}&period=${period}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -650,6 +651,11 @@ function Dashboard({ user, onLogout }) {
             loading={financialHealthLoading}
             error={financialHealthError}
             onViewBreakdown={() => setShowHealthBreakdown(true)}
+            period={healthPeriod}
+            onPeriodChange={(newPeriod) => {
+              setHealthPeriod(newPeriod);
+              fetchFinancialHealth(newPeriod);
+            }}
           />
         </div>
 

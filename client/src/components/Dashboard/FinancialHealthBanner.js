@@ -13,7 +13,7 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function FinancialHealthBanner({ data, loading, error, onViewBreakdown }) {
+function FinancialHealthBanner({ data, loading, error, onViewBreakdown, period, onPeriodChange }) {
   const score = typeof data?.score === 'number' ? data.score : null;
   const delta = typeof data?.deltaFromPreviousMonth === 'number' ? data.deltaFromPreviousMonth : null;
 
@@ -105,18 +105,30 @@ function FinancialHealthBanner({ data, loading, error, onViewBreakdown }) {
               </span>
             )}
           </div>
+          <div className="fh-period-toggle">
+            <button
+              type="button"
+              className={`fh-period-btn ${period === 'month' ? 'active' : ''}`}
+              onClick={() => onPeriodChange('month')}
+              disabled={loading}
+            >
+              Month
+            </button>
+            <button
+              type="button"
+              className={`fh-period-btn ${period === 'year' ? 'active' : ''}`}
+              onClick={() => onPeriodChange('year')}
+              disabled={loading}
+            >
+              Year
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="fh-right">
         <div className="fh-explanation">
-          {typeof score === 'number' ? (
-            <>
-              <strong>{score}/100</strong> {explanation}
-            </>
-          ) : (
-            explanation
-          )}
+          {explanation}
         </div>
 
         <button type="button" className="fh-breakdown" onClick={onViewBreakdown} disabled={loading || !!error || !data}>

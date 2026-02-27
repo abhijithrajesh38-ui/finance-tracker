@@ -90,7 +90,7 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
             "expenseByWeek": summary.get("expenseByWeek", {}),
         },
         "collections": {
-            "recentTransactions": (raw.get("recentTransactions") or [])[:50],
+            "recentTransactions": (raw.get("recentTransactions") or [])[:200],
             "budgets": (raw.get("allBudgets") or [])[:50],
         },
         "alerts": alerts,
@@ -109,14 +109,24 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
         "RESPONSE GUIDELINES:\n"
         "- For savings questions: Calculate from Income - Expenses, identify top expense categories to reduce\n"
         "- For spending analysis: Use categoryByMonth data for month-specific queries\n"
+        "- For DAY-SPECIFIC category breakdowns: Use recentTransactions filtered by date, group by category\n"
         "- For trends: Compare monthly data to identify patterns\n"
         "- For recommendations: Base suggestions on actual spending patterns, not generic advice\n"
         "- For comparisons: Use the monthlySpending, monthlyIncome, and monthlySavings arrays\n"
         "- If data is missing or insufficient: Clearly state 'I could not find this information in your financial records'\n\n"
         "CONVERSATION CONTEXT:\n"
-        "- When user says 'that month', 'it', 'this', refer to the previous conversation\n"
+        "- When user says 'that day', 'that month', 'it', 'this', refer to the previous conversation\n"
+        "- If previous question mentioned a specific date (e.g., 2026-02-26), follow-up questions about 'category' or 'detail' refer to that date\n"
         "- Track what was discussed to provide coherent follow-up responses\n"
         "- Maintain context across multiple related questions\n\n"
+        "HANDLING CATEGORY BREAKDOWN REQUESTS:\n"
+        "- When asked for category breakdown of a specific day's expenses:\n"
+        "  1. Filter recentTransactions by the date (YYYY-MM-DD format)\n"
+        "  2. Group expenses by category field\n"
+        "  3. Sum amounts for each category\n"
+        "  4. Present in descending order by amount\n"
+        "  5. Include total at the end\n"
+        "- Example format: 'Your expenses on 2026-02-26 by category:\\n  Food: ₹500.00\\n  Transport: ₹200.00\\n\\nTotal: ₹700.00'\n\n"
         "ACTIONABLE INSIGHTS:\n"
         "- Always provide specific numbers from the data\n"
         "- Suggest concrete actions based on spending patterns\n"
