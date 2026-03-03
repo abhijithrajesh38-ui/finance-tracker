@@ -979,25 +979,24 @@
 .finn-floating-btn {
   position: fixed;
   bottom: 30px;
-  left: 30px;
-  width: 70px;
-  height: 70px;
+  right: 30px;
+  width: 65px;
+  height: 65px;
   border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid #e0e0e0;
+  background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+  border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
   z-index: 1000;
 }
 
 .finn-floating-btn:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
-  border-color: #1a1a1a;
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.3);
 }
 
 .finn-floating-btn:hover .finn-tooltip {
@@ -1007,18 +1006,19 @@
 }
 
 .finn-floating-btn img {
-  width: 35px;
-  height: 35px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 .finn-floating-btn:active {
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .finn-tooltip {
   position: absolute;
-  left: 85px;
+  right: 85px;
   background: #1a1a1a;
   color: white;
   padding: 10px 16px;
@@ -1028,7 +1028,7 @@
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-10px);
+  transform: translateX(10px);
   transition: all 0.3s ease;
   pointer-events: none;
 }
@@ -1036,12 +1036,12 @@
 .finn-tooltip::before {
   content: '';
   position: absolute;
-  left: -6px;
+  right: -6px;
   top: 50%;
   transform: translateY(-50%);
   width: 0;
   height: 0;
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-right: 6px solid #1a1a1a;
+  border-left: 6px solid #1a1a1a;
 }
