@@ -90,7 +90,7 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
             "expenseByWeek": summary.get("expenseByWeek", {}),
         },
         "collections": {
-            "recentTransactions": (raw.get("recentTransactions") or [])[:50],
+            "recentTransactions": (raw.get("recentTransactions") or [])[:200],
             "budgets": (raw.get("allBudgets") or [])[:50],
         },
         "alerts": alerts,
@@ -109,14 +109,24 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
         "RESPONSE GUIDELINES:\n"
         "- For savings questions: Calculate from Income - Expenses, identify top expense categories to reduce\n"
         "- For spending analysis: Use categoryByMonth data for month-specific queries\n"
+        "- For DAY-SPECIFIC category breakdowns: Use recentTransactions filtered by date, group by category\n"
         "- For trends: Compare monthly data to identify patterns\n"
         "- For recommendations: Base suggestions on actual spending patterns, not generic advice\n"
         "- For comparisons: Use the monthlySpending, monthlyIncome, and monthlySavings arrays\n"
         "- If data is missing or insufficient: Clearly state 'I could not find this information in your financial records'\n\n"
         "CONVERSATION CONTEXT:\n"
-        "- When user says 'that month', 'it', 'this', refer to the previous conversation\n"
+        "- When user says 'that day', 'that month', 'it', 'this', refer to the previous conversation\n"
+        "- If previous question mentioned a specific date (e.g., 2026-02-26), follow-up questions about 'category' or 'detail' refer to that date\n"
         "- Track what was discussed to provide coherent follow-up responses\n"
         "- Maintain context across multiple related questions\n\n"
+        "HANDLING CATEGORY BREAKDOWN REQUESTS:\n"
+        "- When asked for category breakdown of a specific day's expenses:\n"
+        "  1. Filter recentTransactions by the date (YYYY-MM-DD format)\n"
+        "  2. Group expenses by category field\n"
+        "  3. Sum amounts for each category\n"
+        "  4. Present in descending order by amount\n"
+        "  5. Include total at the end\n"
+        "- Example format: 'Your expenses on 2026-02-26 by category:\\n  Food: ₹500.00\\n  Transport: ₹200.00\\n\\nTotal: ₹700.00'\n\n"
         "ACTIONABLE INSIGHTS:\n"
         "- Always provide specific numbers from the data\n"
         "- Suggest concrete actions based on spending patterns\n"
@@ -144,6 +154,46 @@ def answer_query(question: str, insights: dict[str, Any], conversation_history: 
         # Log the error but don't expose internal details
         print(f"Gemini API error: {e}")
         raise  # Re-raise to trigger fallback in main.py
+
+
+def generate_financial_health_explanation(*, prompt: str, max_output_tokens: int) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing environment variable: GEMINI_API_KEY")
+
+    genai.configure(api_key=api_key)
+
+    model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+    generation_config = {
+        "temperature": 0.2,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": max_output_tokens,
+    }
+
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+
+    model = genai.GenerativeModel(
+        model_name,
+        generation_config=generation_config,
+        safety_settings=safety_settings,
+    )
+
+    resp = model.generate_content(prompt)
+    text = (getattr(resp, "text", None) or "").strip()
+    if not text:
+        raise RuntimeError("Empty response from Gemini")
+
+    text = re.sub(r"```[a-zA-Z]*", "", text).replace("```", "").strip()
+    text = re.sub(r"[\U0001F300-\U0001FAFF]", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text
 
 
 def extract_transaction_from_image(*, image_bytes: bytes, mime_type: str = "image/jpeg") -> dict[str, Any]:

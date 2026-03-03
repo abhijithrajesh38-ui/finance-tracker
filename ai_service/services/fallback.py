@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -97,10 +98,28 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
             f"Income {fmt_money(inc)}, Expenses {fmt_money(exp)}, Net {fmt_money(net)}."
         )
 
-    # Handle day/week specific questions
-    if ("week" in q or "day" in q or "today" in q or "yesterday" in q or "last" in q) and (
-        "spend" in q or "spent" in q or "expense" in q or "expenses" in q or "income" in q or "earned" in q
-    ):
+    def _has_date_pattern(query: str) -> bool:
+        """Check if query contains a date pattern (YYYY-MM-DD, Feb 25 2026, etc.)"""
+        import re
+        # YYYY-MM-DD
+        if re.search(r"\b20\d\d-\d\d-\d\d\b", query):
+            return True
+        # Month names
+        month_names = r'(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)'
+        # Month DD, YYYY or Month DD
+        if re.search(rf'\b{month_names}\s+\d{{1,2}}(?:,?\s+20\d\d)?\b', query, re.IGNORECASE):
+            return True
+        # DD Month, YYYY or DD Month
+        if re.search(rf'\b\d{{1,2}}\s+{month_names}(?:\s+20\d\d)?\b', query, re.IGNORECASE):
+            return True
+        # DD/MM/YYYY or MM/DD/YYYY
+        if re.search(r'\b\d{1,2}[/-]\d{1,2}[/-]20\d\d\b', query):
+            return True
+        return False
+
+    # Handle day/week specific questions OR date-specific expense/income queries
+    if ("week" in q or "day" in q or "today" in q or "yesterday" in q or "last" in q or
+        (_has_date_pattern(q) and ("spend" in q or "spent" in q or "expense" in q or "expenses" in q or "income" in q or "earned" in q))):
         import re
         from datetime import datetime, timedelta
 
@@ -115,6 +134,60 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
             if "spend" in q or "spent" in q or "expense" in q:
                 return f"Your spending on {dk} was {fmt_money(exp)}."
             return f"On {dk}: Income {fmt_money(inc)}, Expenses {fmt_money(exp)}, Net {fmt_money(inc - exp)}."
+
+        # Natural date formats: "Feb 25, 2026", "February 25, 2026", "25 Feb 2026", etc.
+        month_map = {
+            'january': 1, 'february': 2, 'march': 3, 'april': 4,
+            'may': 5, 'june': 6, 'july': 7, 'august': 8,
+            'september': 9, 'october': 10, 'november': 11, 'december': 12,
+            'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+            'jul': 7, 'aug': 8, 'sep': 9, 'sept': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        }
+
+        def _parse_natural_date(query: str):
+            """Try to parse dates like 'Feb 25, 2026', 'February 25', '25 Feb 2026', '25/02/2026'."""
+            # Pattern: Month DD, YYYY  or  Month DD  (e.g., Feb 25, 2026 or February 25)
+            month_pattern = '(' + '|'.join(month_map.keys()) + ')'
+            # Month name + day + optional year
+            m1 = re.search(rf'\b{month_pattern}\s+(\d{{1,2}})(?:,?\s+(20\d\d))?\b', query, re.IGNORECASE)
+            if m1:
+                month_name = m1.group(1).lower()
+                day = int(m1.group(2))
+                year = int(m1.group(3)) if m1.group(3) else _get_anchor_today().year
+                month = month_map.get(month_name)
+                if month and 1 <= day <= 31:
+                    return f"{year:04d}-{month:02d}-{day:02d}"
+            # Day + Month name + optional year (e.g., 25 Feb 2026 or 25 Feb)
+            m2 = re.search(rf'\b(\d{{1,2}})\s+{month_pattern}(?:\s+(20\d\d))?\b', query, re.IGNORECASE)
+            if m2:
+                day = int(m2.group(1))
+                month_name = m2.group(2).lower()
+                year = int(m2.group(3)) if m2.group(3) else _get_anchor_today().year
+                month = month_map.get(month_name)
+                if month and 1 <= day <= 31:
+                    return f"{year:04d}-{month:02d}-{day:02d}"
+            # DD/MM/YYYY or DD-MM-YYYY
+            m3 = re.search(r'\b(\d{1,2})[/-](\d{1,2})[/-](20\d\d)\b', query)
+            if m3:
+                day, month, year = int(m3.group(1)), int(m3.group(2)), int(m3.group(3))
+                return f"{year:04d}-{month:02d}-{day:02d}"
+            # MM/DD/YYYY or MM-DD-YYYY (US format) - only if day > 12 to disambiguate
+            m4 = re.search(r'\b(\d{1,2})[/-](\d{1,2})[/-](20\d\d)\b', query)
+            if m4:
+                first, second, year = int(m4.group(1)), int(m4.group(2)), int(m4.group(3))
+                if first > 12 and second <= 12:  # likely MM/DD/YYYY with MM > 12 being day
+                    return f"{year:04d}-{second:02d}-{first:02d}"
+            return None
+
+        natural_date = _parse_natural_date(q)
+        if natural_date:
+            exp = float(expense_by_day.get(natural_date, 0) or 0)
+            inc = float(income_by_day.get(natural_date, 0) or 0)
+            if "income" in q or "earned" in q:
+                return f"Your income on {natural_date} was {fmt_money(inc)}."
+            if "spend" in q or "spent" in q or "expense" in q:
+                return f"Your spending on {natural_date} was {fmt_money(exp)}."
+            return f"On {natural_date}: Income {fmt_money(inc)}, Expenses {fmt_money(exp)}, Net {fmt_money(inc - exp)}."
 
         # Today / yesterday (anchored to latest transaction date when available)
         today = _get_anchor_today()
@@ -255,6 +328,92 @@ def build_fallback_answer(question: str, insights: dict[str, Any], conversation_
                     except Exception:
                         month_display = last_month
                     return f"Your total spending in {month_display} was {fmt_money(tm.get('spent', 0))}."
+
+    # Extract last mentioned day from conversation history for day-specific follow-ups
+    last_day = None
+    if conversation_history:
+        # Look for ISO date patterns like "2026-02-25" in conversation history
+        # Use a more flexible pattern that handles dates in various contexts
+        day_match = re.search(r'(20\d{2}-\d{2}-\d{2})', conversation_history)
+        if day_match:
+            last_day = day_match.group(1)
+            print(f"[FALLBACK DEBUG] Found last_day: {last_day}")
+        else:
+            print(f"[FALLBACK DEBUG] No date found in conversation_history")
+    else:
+        print(f"[FALLBACK DEBUG] No conversation_history provided")
+    
+    print(f"[FALLBACK DEBUG] Query: '{q}', word_count: {len(q.split())}, last_day: {last_day}")
+
+    # Handle DAY-SPECIFIC FOLLOW-UPS (questions after a date was mentioned)
+    # Increased word count limit to handle longer natural language questions
+    if last_day and len(q.split()) <= 25:
+        try:
+            # Category breakdown for the last mentioned day
+            # Relaxed keyword matching - if user mentions category/detail/breakdown and it's about expenses
+            category_keywords = ["category", "categories", "which", "breakdown", "detail", "details", "what kind", "what types", "explain", "in detail"]
+            is_category_question = any(kw in q for kw in category_keywords)
+            is_expense_question = "expense" in q or "spent" in q or "spending" in q or not any(kw in q for kw in ["income", "earned", "salary"])
+            
+            print(f"[FALLBACK DEBUG] Checking day follow-up: last_day={last_day}, is_category={is_category_question}, is_expense={is_expense_question}")
+            
+            if is_category_question and is_expense_question:
+                # Get transactions for that day
+                raw_data = insights.get("raw") or {}
+                recent = raw_data.get("recentTransactions") or []
+                print(f"[FALLBACK DEBUG] Found {len(recent)} recent transactions")
+                day_expenses = []
+                for t in recent:
+                    t_date = str(t.get("date", ""))[:10] if t.get("date") else ""
+                    t_type = t.get("type", "")
+                    if t_type == "expense" and t_date == last_day:
+                        day_expenses.append(t)
+                
+                print(f"[FALLBACK DEBUG] Found {len(day_expenses)} expenses for {last_day}")
+                
+                if day_expenses:
+                    # Group by category
+                    cats: dict[str, float] = {}
+                    for t in day_expenses:
+                        cat = str(t.get("category") or "Uncategorized")
+                        amount = float(t.get("amount", 0) or 0)
+                        cats[cat] = cats.get(cat, 0.0) + amount
+                    
+                    lines = [f"Your expenses on {last_day} by category:"]
+                    for cat, amount in sorted(cats.items(), key=lambda x: x[1], reverse=True):
+                        lines.append(f"  {cat}: {fmt_money(amount)}")
+                    
+                    total = sum(cats.values())
+                    lines.append(f"\nTotal: {fmt_money(total)}")
+                    return "\n".join(lines)
+                else:
+                    return f"I couldn't find any expenses on {last_day} in your records."
+            
+            # What transactions occurred on that day
+            if any(kw in q for kw in ["what", "which", "list", "transactions", "items", "purchases"]):
+                raw_data = insights.get("raw") or {}
+                recent = raw_data.get("recentTransactions") or []
+                day_transactions = []
+                for t in recent:
+                    t_date = str(t.get("date", ""))[:10] if t.get("date") else ""
+                    if t.get("type") == "expense" and t_date == last_day:
+                        day_transactions.append(t)
+                
+                if day_transactions:
+                    lines = [f"Your expenses on {last_day}:"]
+                    for t in sorted(day_transactions, key=lambda x: float(x.get("amount", 0) or 0), reverse=True)[:10]:
+                        desc = t.get("description", "No description")
+                        cat = t.get("category", "Uncategorized")
+                        amt = fmt_money(t.get("amount", 0))
+                        lines.append(f"  {cat} - {desc}: {amt}")
+                    return "\n".join(lines)
+                else:
+                    return f"I couldn't find any expenses on {last_day} in your records."
+        except Exception as e:
+            import traceback
+            print(f"[FALLBACK DEBUG ERROR] Day follow-up failed: {e}")
+            print(traceback.format_exc())
+            # Fall through to other handlers
 
     # Handle category queries with "overall" or "all months" 
     if ("category" in q and ("overall" in q or "all" in q or "total" in q or "most" in q)):

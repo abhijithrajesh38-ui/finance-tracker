@@ -496,6 +496,6 @@ def build_insights(db, user_id: str, since: datetime | None = None, load_all: bo
                 ],
                 key=lambda x: x.get("date") or "",
                 reverse=True,
-            )[:50],
+            )[:200],
         },
     }

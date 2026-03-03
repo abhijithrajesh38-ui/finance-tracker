@@ -8,6 +8,8 @@ import Report from '../Report/Report';
 import Compare from '../Compare/Compare';
 import Bills from '../Bills/Bills';
 import Goals from '../Goals/Goals';
+import FinancialHealthBanner from './FinancialHealthBanner';
+import FinancialHealthBreakdownModal from './FinancialHealthBreakdownModal';
 import blackfinLogo from '../../assets/images/blackfin.svg';
 import { 
   MdAccountBalance, MdTrendingDown, MdTrendingUp, MdSavings,
@@ -29,6 +31,14 @@ function Dashboard({ user, onLogout }) {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [upcomingBills, setUpcomingBills] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [goals, setGoals] = useState([]);
+
+  const [financialHealth, setFinancialHealth] = useState(null);
+  const [financialHealthLoading, setFinancialHealthLoading] = useState(false);
+  const [financialHealthError, setFinancialHealthError] = useState('');
+  const [showHealthBreakdown, setShowHealthBreakdown] = useState(false);
+  const [healthDropNotification, setHealthDropNotification] = useState('');
+  const [healthPeriod, setHealthPeriod] = useState('month');
 
   console.log('Dashboard user object:', user);
 
@@ -47,8 +57,42 @@ function Dashboard({ user, onLogout }) {
       fetchBudgets();
       fetchAiInsights();
       fetchUpcomingBills();
+<<<<<<< HEAD
+      fetchGoals();
+=======
+      fetchFinancialHealth();
+>>>>>>> 2a3e4a4f280f17a39992f2a3adcf2b020ea70b94
     }
   }, [user]);
+
+  const fetchFinancialHealth = async (period = healthPeriod) => {
+    try {
+      setFinancialHealthLoading(true);
+      setFinancialHealthError('');
+      setHealthDropNotification('');
+
+      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}&period=${period}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFinancialHealth(null);
+        setFinancialHealthError(data?.message || 'Financial health analysis unavailable.');
+        return;
+      }
+
+      setFinancialHealth(data);
+
+      if (typeof data?.deltaFromPreviousMonth === 'number' && data.deltaFromPreviousMonth < -10) {
+        setHealthDropNotification('Your financial health score decreased significantly this month.');
+      }
+    } catch (error) {
+      setFinancialHealth(null);
+      setFinancialHealthError('Financial health analysis unavailable.');
+      console.error('Error fetching financial health:', error);
+    } finally {
+      setFinancialHealthLoading(false);
+    }
+  };
 
   const fetchAiInsights = async () => {
     try {
@@ -155,6 +199,18 @@ function Dashboard({ user, onLogout }) {
       updateUnreadCount(newAlerts.length, newBills.length);
     } catch (error) {
       console.error('Error fetching upcoming bills:', error);
+    }
+  };
+
+  const fetchGoals = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/goals?userId=${user.id}`);
+      const data = await response.json();
+      // Sort by target date (closest first) and take top 3
+      const sortedGoals = data.sort((a, b) => new Date(a.targetDate) - new Date(b.targetDate)).slice(0, 3);
+      setGoals(sortedGoals);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
     }
   };
 
@@ -412,6 +468,12 @@ function Dashboard({ user, onLogout }) {
           <img src={blackfinLogo} alt="Finn AI" />
           <span className="finn-tooltip">Hey! I'm Finn</span>
         </button>
+
+        <FinancialHealthBreakdownModal
+          isOpen={showHealthBreakdown}
+          onClose={() => setShowHealthBreakdown(false)}
+          data={financialHealth}
+        />
       </>
     );
   }
@@ -594,6 +656,26 @@ function Dashboard({ user, onLogout }) {
           </div>
         </header>
 
+        <div style={{ padding: '0 40px', marginBottom: '18px' }}>
+          {healthDropNotification && (
+            <div className="notification-item" style={{ border: '1px solid #ffe1e1', background: '#fff5f5', borderRadius: '14px' }}>
+              <div className="notification-title"><MdWarning /> Financial Health</div>
+              <div className="notification-text">{healthDropNotification}</div>
+            </div>
+          )}
+          <FinancialHealthBanner
+            data={financialHealth}
+            loading={financialHealthLoading}
+            error={financialHealthError}
+            onViewBreakdown={() => setShowHealthBreakdown(true)}
+            period={healthPeriod}
+            onPeriodChange={(newPeriod) => {
+              setHealthPeriod(newPeriod);
+              fetchFinancialHealth(newPeriod);
+            }}
+          />
+        </div>
+
         <div className="stats-grid">
           <div className="stat-card dark">
             <div className="stat-icon"><MdAccountBalance /></div>
@@ -767,18 +849,23 @@ function Dashboard({ user, onLogout }) {
                 <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('goals'); }} className="view-all">VIEW ALL</a>
               </div>
               <div className="savings-goals">
-                <div className="goal-circle">
-                  <div className="circle-progress">100%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
-                <div className="goal-circle">
-                  <div className="circle-progress">75%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
-                <div className="goal-circle">
-                  <div className="circle-progress">70%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
+                {goals.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                    No goals yet. Go to Goals page to create one.
+                  </div>
+                ) : (
+                  goals.map(goal => {
+                    const percentage = goal.targetAmount > 0 
+                      ? Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100) 
+                      : 0;
+                    return (
+                      <div key={goal._id} className="goal-circle">
+                        <div className="circle-progress">{percentage}%</div>
+                        <div className="goal-label">{goal.name.toUpperCase()}</div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -826,6 +913,12 @@ function Dashboard({ user, onLogout }) {
       <img src={blackfinLogo} alt="Finn AI" />
       <span className="finn-tooltip">Hey! I'm Finn</span>
     </button>
+
+    <FinancialHealthBreakdownModal
+      isOpen={showHealthBreakdown}
+      onClose={() => setShowHealthBreakdown(false)}
+      data={financialHealth}
+    />
     </>
   );
 }

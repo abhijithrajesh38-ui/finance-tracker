@@ -130,6 +130,12 @@
   border: 2px solid #4caf50;
 }
 
+.goal-card.achieved {
+  background: #f0f9f0;
+  border: 2px solid #4caf50;
+  opacity: 0.9;
+}
+
 .goal-header {
   display: flex;
   justify-content: space-between;
@@ -232,6 +238,26 @@
   color: #4caf50;
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.achieved-btn {
+  width: 100%;
+  padding: 12px;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 12px;
+}
+
+.achieved-btn:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
 .add-money-btn {

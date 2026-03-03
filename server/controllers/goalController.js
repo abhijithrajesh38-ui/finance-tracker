@@ -27,16 +27,36 @@ export const allocateSavings = async (req, res) => {
     
     const yearlySavings = totalIncome - totalExpenses;
     
+    console.log('Allocation Debug:', {
+      totalIncome,
+      totalExpenses,
+      yearlySavings
+    });
+    
     if (yearlySavings <= 0) {
-      // Reset all goals to 0 if no savings
-      await Goal.updateMany({ userId }, { currentAmount: 0, status: 'active' });
+      // Reset all non-achieved goals to 0 if no savings
+      const allGoals = await Goal.find({ userId });
+      for (const goal of allGoals) {
+        if (!goal.achieved) {
+          goal.currentAmount = 0;
+          goal.status = 'active';
+          await goal.save();
+        }
+      }
       return res.json({ message: 'No savings to allocate', yearlySavings: 0 });
     }
     
-    // Get ALL goals sorted by target date (CLOSEST date first = ascending order)
-    const allGoals = await Goal.find({ userId }).sort({ targetDate: 1 });
+    // Get ONLY non-achieved goals sorted by target date (CLOSEST date first = ascending order)
+    const allGoals = await Goal.find({ userId, achieved: { $ne: true } }).sort({ targetDate: 1 });
     
-    // Reset all goals before reallocation
+    console.log('Goals before allocation (active only):', allGoals.map(g => ({
+      name: g.name,
+      achieved: g.achieved,
+      currentAmount: g.currentAmount,
+      targetAmount: g.targetAmount
+    })));
+    
+    // Reset all active goals before reallocation
     for (const goal of allGoals) {
       goal.currentAmount = 0;
       goal.status = 'active';
@@ -44,31 +64,53 @@ export const allocateSavings = async (req, res) => {
     
     let remainingSavings = yearlySavings;
     
+    console.log('Starting allocation with savings:', remainingSavings);
+    
     // Allocate savings to goals (fill each goal COMPLETELY before moving to next)
     // Priority: Closest target date first
     for (const goal of allGoals) {
+      let updateData = {};
+      
       if (remainingSavings <= 0) {
-        // No more savings, save with 0 amount
-        await goal.save();
-        continue;
-      }
-      
-      const needed = goal.targetAmount;
-      
-      if (remainingSavings >= needed) {
-        // We have enough to complete this goal
-        goal.currentAmount = goal.targetAmount;
-        goal.status = 'completed';
-        remainingSavings -= needed;
+        // No more savings, set to 0
+        console.log(`No savings left for goal: ${goal.name}, setting to 0`);
+        updateData = { currentAmount: 0, status: 'active' };
       } else {
-        // Partial allocation - add what we have left
-        goal.currentAmount = remainingSavings;
-        goal.status = 'active';
-        remainingSavings = 0;
+        const needed = goal.targetAmount;
+        
+        if (remainingSavings >= needed) {
+          // We have enough to complete this goal
+          updateData = { currentAmount: goal.targetAmount, status: 'completed' };
+          remainingSavings -= needed;
+          console.log(`Completed goal: ${goal.name}, allocated: ${needed}, remaining: ${remainingSavings}`);
+        } else {
+          // Partial allocation - add what we have left
+          updateData = { currentAmount: remainingSavings, status: 'active' };
+          console.log(`Partial allocation for goal: ${goal.name}, allocated: ${remainingSavings}`);
+          remainingSavings = 0;
+        }
       }
       
-      await goal.save();
+      // Use findByIdAndUpdate to ensure the update is saved
+      const updatedGoal = await Goal.findByIdAndUpdate(
+        goal._id,
+        updateData,
+        { new: true }
+      );
+      
+      console.log(`Updated goal ${goal.name} in DB:`, {
+        currentAmount: updatedGoal.currentAmount,
+        status: updatedGoal.status,
+        achieved: updatedGoal.achieved
+      });
     }
+    
+    console.log('Goals after allocation:', allGoals.map(g => ({
+      name: g.name,
+      achieved: g.achieved,
+      currentAmount: g.currentAmount,
+      status: g.status
+    })));
     
     res.json({ 
       message: 'Savings allocated successfully',
@@ -97,6 +139,19 @@ export const getGoals = async (req, res) => {
 export const createGoal = async (req, res) => {
   try {
     console.log('Creating goal with data:', req.body);
+    
+    // Check for duplicate goal name for this user (case-insensitive)
+    const existingGoal = await Goal.findOne({
+      userId: req.body.userId,
+      name: { $regex: new RegExp(`^${req.body.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    
+    if (existingGoal) {
+      return res.status(400).json({ 
+        message: `A goal named "${req.body.name}" already exists. Please use a different name.` 
+      });
+    }
+    
     const goal = new Goal(req.body);
     await goal.save();
     console.log('Goal created successfully:', goal);
@@ -111,8 +166,36 @@ export const createGoal = async (req, res) => {
 export const updateGoal = async (req, res) => {
   try {
     const { id } = req.params;
-    // Don't allow updating currentAmount or status manually
+    
+    // If name is being changed, check for duplicates (case-insensitive)
+    if (req.body.name) {
+      const existingGoal = await Goal.findOne({
+        userId: req.body.userId,
+        name: { $regex: new RegExp(`^${req.body.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        _id: { $ne: id } // Exclude current goal
+      });
+      
+      if (existingGoal) {
+        return res.status(400).json({ 
+          message: `A goal named "${req.body.name}" already exists. Please use a different name.` 
+        });
+      }
+    }
+    
+    // Don't allow updating currentAmount or status manually (except when marking as achieved)
     const { currentAmount, status, ...updateData } = req.body;
+    
+    // Allow achieved field to be updated
+    if (req.body.achieved !== undefined) {
+      updateData.achieved = req.body.achieved;
+    }
+    
+    // If marking as achieved, also update status and currentAmount
+    if (req.body.achieved === true) {
+      updateData.status = 'completed';
+      updateData.currentAmount = req.body.targetAmount;
+    }
+    
     const goal = await Goal.findByIdAndUpdate(id, updateData, { new: true });
     if (!goal) {
       return res.status(404).json({ message: 'Goal not found' });
