@@ -5,6 +5,7 @@ import {
   MdRestaurant, MdDirectionsCar, MdShoppingBag, MdDescription,
   MdLocalHospital, MdTv, MdCreditCard
 } from 'react-icons/md';
+import { api } from '../../utils/api';
 
 function Compare({ userId }) {
   const [transactions, setTransactions] = useState([]);
@@ -18,16 +19,19 @@ function Compare({ userId }) {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   useEffect(() => {
-    fetchTransactions();
+    if (userId) {
+      fetchTransactions();
+    }
   }, [userId]);
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions?userId=${userId}`);
+      const response = await api.getTransactions(userId);
       const data = await response.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      setTransactions([]);
     }
   };
 

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './AddTransactionModal.css';
+import { api } from '../../utils/api';
 
 function AddTransactionModal({ isOpen, onClose, userId, onSuccess, prefill, autoSubmit }) {
   const defaultFormData = {
@@ -78,14 +79,10 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess, prefill, auto
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          userId,
-          amount: parseFloat(formData.amount)
-        })
+      const response = await api.createTransaction({
+        ...formData,
+        userId,
+        amount: parseFloat(formData.amount)
       });
 
       const data = await response.json();

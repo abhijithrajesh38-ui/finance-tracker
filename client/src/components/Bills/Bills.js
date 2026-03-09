@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './Bills.css';
 import { MdAdd, MdDelete, MdCheckCircle, MdAlarm, MdEdit } from 'react-icons/md';
+import { api } from '../../utils/api';
 
 function Bills({ userId }) {
   const [bills, setBills] = useState([]);
@@ -28,12 +29,13 @@ function Bills({ userId }) {
 
   const fetchBills = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bills?userId=${userId}`);
+      const response = await api.getBills(userId);
       const data = await response.json();
-      setBills(data);
+      setBills(Array.isArray(data) ? data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching bills:', error);
+      setBills([]);
       setLoading(false);
     }
   };
@@ -43,11 +45,7 @@ function Bills({ userId }) {
     console.log('Submitting bill:', formData);
     
     try {
-      const response = await fetch('http://localhost:5000/api/bills', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, userId })
-      });
+      const response = await api.createBill({ ...formData, userId });
 
       console.log('Response status:', response.status);
       
@@ -83,9 +81,7 @@ function Bills({ userId }) {
 
   const markAsPaid = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bills/${id}/pay`, {
-        method: 'PUT'
-      });
+      const response = await api.markBillAsPaid(id);
 
       if (response.ok) {
         fetchBills();
@@ -102,9 +98,7 @@ function Bills({ userId }) {
 
   const confirmDelete = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bills/${billToDelete._id}`, {
-        method: 'DELETE'
-      });
+      const response = await api.deleteBill(billToDelete._id);
 
       if (response.ok) {
         setShowDeleteModal(false);

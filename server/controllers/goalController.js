@@ -4,7 +4,7 @@ import Transaction from '../models/Transaction.js';
 // Allocate yearly savings to goals (prioritize closest target dates first)
 export const allocateSavings = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.userId; // From auth middleware
     
     // Get current year transactions
     const currentYear = new Date().getFullYear();
@@ -77,33 +77,29 @@ export const allocateSavings = async (req, res) => {
       remaining: remainingSavings
     });
   } catch (error) {
-    console.error('Error allocating savings:', error);
-    res.status(500).json({ message: 'Error allocating savings', error: error.message });
+    res.status(500).json({ message: 'Failed to allocate savings' });
   }
 };
 
 // Get all goals for a user
 export const getGoals = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.userId; // From auth middleware
     const goals = await Goal.find({ userId }).sort({ createdAt: -1 });
     res.json(goals);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching goals', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch goals' });
   }
 };
 
 // Create a new goal
 export const createGoal = async (req, res) => {
   try {
-    console.log('Creating goal with data:', req.body);
     const goal = new Goal(req.body);
     await goal.save();
-    console.log('Goal created successfully:', goal);
     res.status(201).json(goal);
   } catch (error) {
-    console.error('Error creating goal:', error);
-    res.status(400).json({ message: 'Error creating goal', error: error.message });
+    res.status(400).json({ message: 'Failed to create goal' });
   }
 };
 
@@ -119,7 +115,7 @@ export const updateGoal = async (req, res) => {
     }
     res.json(goal);
   } catch (error) {
-    res.status(400).json({ message: 'Error updating goal', error: error.message });
+    res.status(400).json({ message: 'Failed to update goal' });
   }
 };
 
@@ -133,6 +129,6 @@ export const deleteGoal = async (req, res) => {
     }
     res.json({ message: 'Goal deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting goal', error: error.message });
+    res.status(500).json({ message: 'Failed to delete goal' });
   }
 };
