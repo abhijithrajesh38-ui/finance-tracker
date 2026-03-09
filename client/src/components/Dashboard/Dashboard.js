@@ -57,11 +57,8 @@ function Dashboard({ user, onLogout }) {
       fetchBudgets();
       fetchAiInsights();
       fetchUpcomingBills();
-<<<<<<< HEAD
       fetchGoals();
-=======
       fetchFinancialHealth();
->>>>>>> 2a3e4a4f280f17a39992f2a3adcf2b020ea70b94
     }
   }, [user]);
 
