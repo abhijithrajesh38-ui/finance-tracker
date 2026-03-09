@@ -29,7 +29,7 @@ function Bills({ userId }) {
 
   const fetchBills = async () => {
     try {
-      const response = await api.getBills(userId);
+      const response = await api.getBills();
       const data = await response.json();
       setBills(Array.isArray(data) ? data : []);
       setLoading(false);

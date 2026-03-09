@@ -20,29 +20,55 @@ function Goals({ userId }) {
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/goals?userId=${userId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/goals`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
+      
       const data = await response.json();
-      setGoals(data);
+      setGoals(Array.isArray(data) ? data : []);
       
       // Allocate savings after fetching goals
       await allocateSavings();
     } catch (error) {
       console.error('Error fetching goals:', error);
+      setGoals([]);
     }
   };
 
   const allocateSavings = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/goals/allocate?userId=${userId}`, {
-        method: 'POST'
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/goals/allocate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
+      
       if (response.ok) {
         const data = await response.json();
         console.log('Savings allocated:', data);
         // Fetch goals again to get updated amounts
-        const goalsResponse = await fetch(`http://localhost:5000/api/goals?userId=${userId}`);
-        const updatedGoals = await goalsResponse.json();
-        setGoals(updatedGoals);
+        const goalsResponse = await fetch(`http://localhost:5000/api/goals`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (goalsResponse.ok) {
+          const updatedGoals = await goalsResponse.json();
+          setGoals(Array.isArray(updatedGoals) ? updatedGoals : []);
+        }
       }
     } catch (error) {
       console.error('Error allocating savings:', error);
@@ -64,10 +90,14 @@ function Goals({ userId }) {
         : 'http://localhost:5000/api/goals';
       
       const method = editingGoal ? 'PUT' : 'POST';
+      const token = localStorage.getItem('token');
       
       const response = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(goalData)
       });
       
@@ -104,10 +134,23 @@ function Goals({ userId }) {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this goal?')) {
       try {
-        await api.deleteGoal(id);
-        await fetchGoals();
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/goals/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          await fetchGoals();
+        } else {
+          throw new Error('Failed to delete goal');
+        }
       } catch (error) {
         console.error('Error deleting goal:', error);
+        alert('Failed to delete goal');
       }
     }
   };

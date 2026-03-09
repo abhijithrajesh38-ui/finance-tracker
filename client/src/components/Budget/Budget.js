@@ -26,13 +26,25 @@ function Budget({ userId }) {
 
   const fetchBudgets = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/budgets?userId=${userId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/budgets`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch budgets');
+      }
+      
       const data = await response.json();
-      setBudgets(data);
+      setBudgets(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching budgets:', error);
+      setBudgets([]);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -63,10 +75,14 @@ function Budget({ userId }) {
         : 'http://localhost:5000/api/budgets';
       
       const method = editingBudget ? 'PUT' : 'POST';
+      const token = localStorage.getItem('token');
       
       const response = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(budgetData)
       });
       
@@ -159,7 +175,14 @@ function Budget({ userId }) {
 
   const confirmDelete = useCallback(async () => {
     try {
-      await fetch(`http://localhost:5000/api/budgets/${budgetToDelete._id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/budgets/${budgetToDelete._id}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       setShowDeleteModal(false);
       setBudgetToDelete(null);
       fetchBudgets();
@@ -170,7 +193,7 @@ function Budget({ userId }) {
       console.error('Error deleting budget:', error);
       alert('Error deleting budget');
     }
-  }, [budgetToDelete]);
+  }, [budgetToDelete, fetchBudgets]);
 
   const cancelDelete = useCallback(() => {
     setShowDeleteModal(false);

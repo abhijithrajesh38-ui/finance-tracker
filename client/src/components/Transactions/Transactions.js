@@ -38,9 +38,20 @@ function Transactions({ userId, onTransactionChange }) {
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions?userId=${userId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/transactions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
+      
       const data = await response.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
       setLoading(false);
       // Notify parent component
       if (onTransactionChange) {
@@ -48,6 +59,7 @@ function Transactions({ userId, onTransactionChange }) {
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      setTransactions([]);
       setLoading(false);
     }
   };
@@ -126,9 +138,13 @@ function Transactions({ userId, onTransactionChange }) {
   const createTransactionDirectly = async (prefill) => {
     setConfirmLoading(true);
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({
           ...prefill,
           userId,
@@ -191,8 +207,13 @@ function Transactions({ userId, onTransactionChange }) {
 
   const confirmDelete = async () => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/transactions/${transactionToDelete}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
