@@ -4,10 +4,10 @@ import { register, login } from '../controllers/authController.js';
 
 const router = express.Router();
 
-// Rate limiter for auth endpoints - 5 requests per 15 minutes
+// Rate limiter for auth endpoints - 20 requests per 15 minutes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  max: 20, // Limit each IP to 20 requests per windowMs
   message: 'Too many authentication attempts, please try again after 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,
