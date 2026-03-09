@@ -44,11 +44,23 @@ function AddTransactionModal({ isOpen, onClose, userId, onSuccess, prefill, auto
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions/categories?userId=${userId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/transactions/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      
       const data = await response.json();
-      setCategories(data);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching categories:', err);
+      setCategories([]);
     }
   };
 

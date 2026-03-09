@@ -212,6 +212,11 @@ function Dashboard({ user, onLogout }) {
   const getFilteredTransactions = () => {
     const now = new Date();
     
+    // Safety check: ensure transactions is an array
+    if (!Array.isArray(transactions)) {
+      return [];
+    }
+    
     return transactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
       
@@ -247,14 +252,18 @@ function Dashboard({ user, onLogout }) {
 
   const filteredTransactions = getFilteredTransactions();
 
-  // Calculate totals for current period
-  const totalIncome = filteredTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Calculate totals for current period - with safety checks
+  const totalIncome = Array.isArray(filteredTransactions)
+    ? filteredTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0)
+    : 0;
   
-  const totalExpenses = filteredTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpenses = Array.isArray(filteredTransactions)
+    ? filteredTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0)
+    : 0;
   
   const totalBalance = totalIncome - totalExpenses;
   const netSavings = totalIncome - totalExpenses;
@@ -263,6 +272,11 @@ function Dashboard({ user, onLogout }) {
   const getLastPeriodData = () => {
     const now = new Date();
     let lastPeriodTransactions = [];
+    
+    // Safety check: ensure transactions is an array
+    if (!Array.isArray(transactions)) {
+      return { lastPeriodIncome: 0, lastPeriodExpenses: 0, lastPeriodBalance: 0, lastPeriodSavings: 0 };
+    }
     
     if (chartFilter === 'Week') {
       // Compare with last week
@@ -338,6 +352,11 @@ function Dashboard({ user, onLogout }) {
   // Calculate chart data based on filter
   const getChartData = () => {
     const now = new Date();
+    
+    // Safety check: ensure filteredTransactions is an array
+    if (!Array.isArray(filteredTransactions)) {
+      return [];
+    }
     
     if (chartFilter === 'Week') {
       // Group by days of current week
@@ -802,7 +821,7 @@ function Dashboard({ user, onLogout }) {
                   No budgets set yet
                 </div>
               ) : (
-                budgets.slice(0, 2).map(budget => {
+                Array.isArray(budgets) && budgets.slice(0, 2).map(budget => {
                   const percentage = budget.limit > 0 ? Math.round((budget.spent / budget.limit) * 100) : 0;
                   return (
                     <div key={budget._id} className="budget-item">
@@ -859,7 +878,7 @@ function Dashboard({ user, onLogout }) {
             <div className="transaction-list">
               {loading ? (
                 <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading...</div>
-              ) : transactions.length === 0 ? (
+              ) : !Array.isArray(transactions) || transactions.length === 0 ? (
                 <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
                   No transactions yet. Go to Transactions page to add some.
                 </div>

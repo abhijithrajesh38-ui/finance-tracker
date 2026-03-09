@@ -26,7 +26,7 @@ function Compare({ userId }) {
 
   const fetchTransactions = async () => {
     try {
-      const response = await api.getTransactions(userId);
+      const response = await api.getTransactions();
       const data = await response.json();
       setTransactions(Array.isArray(data) ? data : []);
     } catch (error) {
