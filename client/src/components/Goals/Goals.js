@@ -104,7 +104,7 @@ function Goals({ userId }) {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this goal?')) {
       try {
-        await fetch(`http://localhost:5000/api/goals/${id}`, { method: 'DELETE' });
+        await api.deleteGoal(id);
         await fetchGoals();
       } catch (error) {
         console.error('Error deleting goal:', error);

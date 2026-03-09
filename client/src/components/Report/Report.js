@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './Report.css';
 import { MdDescription, MdDownload, MdPictureAsPdf } from 'react-icons/md';
+import { api } from '../../utils/api';
 
 function Report({ userId }) {
   const [transactions, setTransactions] = useState([]);
@@ -17,21 +18,23 @@ function Report({ userId }) {
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions?userId=${userId}`);
+      const response = await api.getTransactions(userId);
       const data = await response.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      setTransactions([]);
     }
   };
 
   const fetchBills = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bills?userId=${userId}`);
+      const response = await api.getBills(userId);
       const data = await response.json();
-      setBills(data);
+      setBills(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching bills:', error);
+      setBills([]);
     }
   };
 

@@ -3,11 +3,11 @@ import Bill from '../models/Bill.js';
 // Get all bills for a user
 export const getBills = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.userId; // From auth middleware
     const bills = await Bill.find({ userId }).sort({ dueDate: 1 });
     res.json(bills);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching bills', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch bills' });
   }
 };
 
@@ -18,7 +18,7 @@ export const createBill = async (req, res) => {
     await bill.save();
     res.status(201).json(bill);
   } catch (error) {
-    res.status(400).json({ message: 'Error creating bill', error: error.message });
+    res.status(400).json({ message: 'Failed to create bill' });
   }
 };
 
@@ -32,7 +32,7 @@ export const updateBill = async (req, res) => {
     }
     res.json(bill);
   } catch (error) {
-    res.status(400).json({ message: 'Error updating bill', error: error.message });
+    res.status(400).json({ message: 'Failed to update bill' });
   }
 };
 
@@ -50,7 +50,7 @@ export const markAsPaid = async (req, res) => {
     }
     res.json(bill);
   } catch (error) {
-    res.status(400).json({ message: 'Error marking bill as paid', error: error.message });
+    res.status(400).json({ message: 'Failed to mark bill as paid' });
   }
 };
 
@@ -64,14 +64,14 @@ export const deleteBill = async (req, res) => {
     }
     res.json({ message: 'Bill deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting bill', error: error.message });
+    res.status(500).json({ message: 'Failed to delete bill' });
   }
 };
 
 // Get upcoming bills (due in next 7 days)
 export const getUpcomingBills = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.userId; // From auth middleware
     const today = new Date();
     const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     
@@ -83,7 +83,7 @@ export const getUpcomingBills = async (req, res) => {
     
     res.json(bills);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching upcoming bills', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch upcoming bills' });
   }
 };
 

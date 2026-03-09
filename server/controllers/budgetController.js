@@ -6,8 +6,6 @@ export const createBudget = async (req, res) => {
   try {
     const { userId, category, limit, month, year, alertAt } = req.body;
 
-    console.log('Received budget creation request:', req.body);
-
     // Validate required fields
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required' });
@@ -41,18 +39,16 @@ export const createBudget = async (req, res) => {
     });
 
     await budget.save();
-    console.log('Budget created successfully:', budget);
     res.status(201).json({ message: 'Budget created successfully', budget });
   } catch (error) {
-    console.error('Error creating budget:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Failed to create budget' });
   }
 };
 
 // Get all budgets for a user
 export const getBudgets = async (req, res) => {
   try {
-    const userId = req.query.userId;
+    const userId = req.userId; // From auth middleware
     const budgets = await Budget.find({ userId }).sort({ createdAt: -1 }).lean();
     
     // Get all transactions at once
@@ -61,15 +57,8 @@ export const getBudgets = async (req, res) => {
       type: 'expense'
     }).lean();
     
-    console.log('=== BUDGET DEBUG ===');
-    console.log('User ID:', userId);
-    console.log('Total budgets:', budgets.length);
-    console.log('Total expense transactions:', transactions.length);
-    
     // Calculate spent amount for each budget efficiently
     const budgetsWithSpent = budgets.map(budget => {
-      console.log(`\nChecking budget: "${budget.category}" (Month: ${budget.month}, Year: ${budget.year})`);
-      
       const budgetTransactions = transactions.filter(t => {
         const tDate = new Date(t.date);
         // Case-insensitive and trimmed category comparison
@@ -80,15 +69,10 @@ export const getBudgets = async (req, res) => {
         const dateInRange = tDate >= new Date(budget.year, budget.month - 1, 1) &&
                            tDate < new Date(budget.year, budget.month, 1);
         
-        if (categoryMatch) {
-          console.log(`  Found matching category transaction: "${t.category}", Amount: ${t.amount}, Date: ${t.date}, In date range: ${dateInRange}`);
-        }
-        
         return categoryMatch && dateInRange;
       });
       
       const spent = budgetTransactions.reduce((sum, t) => sum + t.amount, 0);
-      console.log(`  Total spent for "${budget.category}": ${spent}`);
       
       return {
         ...budget,
@@ -96,19 +80,16 @@ export const getBudgets = async (req, res) => {
       };
     });
     
-    console.log('=== END DEBUG ===\n');
-    
     res.json(budgetsWithSpent);
   } catch (error) {
-    console.error('Error in getBudgets:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch budgets' });
   }
 };
 
 // Get budget alerts
 export const getBudgetAlerts = async (req, res) => {
   try {
-    const userId = req.query.userId;
+    const userId = req.userId; // From auth middleware
     const budgets = await Budget.find({ userId }).lean();
     
     // Get all expense transactions at once
