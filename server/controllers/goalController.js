@@ -28,13 +28,20 @@ export const allocateSavings = async (req, res) => {
     const yearlySavings = totalIncome - totalExpenses;
     
     if (yearlySavings <= 0) {
-      // Reset all goals to 0 if no savings
-      await Goal.updateMany({ userId }, { currentAmount: 0, status: 'active' });
+      // Reset all NON-ACHIEVED goals to 0 if no savings
+      const allGoals = await Goal.find({ userId });
+      for (const goal of allGoals) {
+        if (!goal.achieved) {
+          goal.currentAmount = 0;
+          goal.status = 'active';
+          await goal.save();
+        }
+      }
       return res.json({ message: 'No savings to allocate', yearlySavings: 0 });
     }
     
-    // Get ALL goals sorted by target date (CLOSEST date first = ascending order)
-    const allGoals = await Goal.find({ userId }).sort({ targetDate: 1 });
+    // Get ONLY non-achieved goals sorted by target date (CLOSEST date first = ascending order)
+    const allGoals = await Goal.find({ userId, achieved: { $ne: true } }).sort({ targetDate: 1 });
     
     // Reset all goals before reallocation
     for (const goal of allGoals) {
@@ -109,6 +116,18 @@ export const updateGoal = async (req, res) => {
     const { id } = req.params;
     // Don't allow updating currentAmount or status manually
     const { currentAmount, status, ...updateData } = req.body;
+    
+    // Allow achieved field to be updated
+    if (req.body.achieved !== undefined) {
+      updateData.achieved = req.body.achieved;
+    }
+    
+    // If marking as achieved, also update status and reset currentAmount
+    if (req.body.achieved === true) {
+      updateData.status = 'completed';
+      updateData.currentAmount = 0;
+    }
+    
     const goal = await Goal.findByIdAndUpdate(id, updateData, { new: true });
     if (!goal) {
       return res.status(404).json({ message: 'Goal not found' });
