@@ -41,30 +41,21 @@ function Dashboard({ user, onLogout }) {
 
   console.log('Dashboard user object:', user);
 
-  // Refresh data when returning to dashboard
-  useEffect(() => {
-    if (user && user.id && currentPage === 'dashboard') {
-      console.log('Dashboard: Refreshing data on page change');
-      setLoading(true);
-      fetchTransactions();
-      fetchUpcomingBills();
-      fetchBudgetAlerts();
-      fetchBudgets();
-      fetchAiInsights();
-      fetchFinancialHealth();
-    }
-  }, [currentPage, user]);
-
+  // Fetch data once on mount and when returning to dashboard
   useEffect(() => {
     if (user && user.id) {
+      console.log('Dashboard: Loading data');
+      setLoading(true);
       fetchTransactions();
       fetchBudgetAlerts();
       fetchBudgets();
-      fetchAiInsights();
       fetchUpcomingBills();
+      
+      // AI calls are non-blocking - don't wait for them
+      fetchAiInsights();
       fetchFinancialHealth();
     }
-  }, [user]);
+  }, [user, currentPage]);
 
   const fetchFinancialHealth = async (period = healthPeriod) => {
     try {
@@ -72,7 +63,21 @@ function Dashboard({ user, onLogout }) {
       setFinancialHealthError('');
       setHealthDropNotification('');
 
-      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}&period=${period}`);
+      const token = localStorage.getItem('token');
+      
+      // Add 10 second timeout for AI service
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}&period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
 
       if (!response.ok) {
@@ -88,7 +93,11 @@ function Dashboard({ user, onLogout }) {
       }
     } catch (error) {
       setFinancialHealth(null);
-      setFinancialHealthError('Financial health analysis unavailable.');
+      if (error.name === 'AbortError') {
+        setFinancialHealthError('AI service timeout - taking too long to respond.');
+      } else {
+        setFinancialHealthError('Financial health analysis unavailable.');
+      }
       console.error('Error fetching financial health:', error);
     } finally {
       setFinancialHealthLoading(false);
@@ -99,12 +108,19 @@ function Dashboard({ user, onLogout }) {
     try {
       setAiLoading(true);
       const token = localStorage.getItem('token');
+      
+      // Add 10 second timeout for AI service
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error('Failed to fetch AI insights');
@@ -113,7 +129,11 @@ function Dashboard({ user, onLogout }) {
       const data = await response.json();
       setAiInsights(Array.isArray(data.insights) ? data.insights : []);
     } catch (error) {
-      console.error('Error fetching AI insights:', error);
+      if (error.name === 'AbortError') {
+        console.log('AI insights timeout - service taking too long');
+      } else {
+        console.error('Error fetching AI insights:', error);
+      }
       setAiInsights([]);
     } finally {
       setAiLoading(false);
@@ -159,20 +179,34 @@ function Dashboard({ user, onLogout }) {
 
   const fetchBudgetAlerts = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/budgets/alerts?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/budgets/alerts`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch budget alerts');
+      }
+      
       const data = await response.json();
       console.log('Budget alerts:', data);
+      
+      // Ensure data is an array
+      const alerts = Array.isArray(data) ? data : [];
       
       // Check if alerts have changed
       const alertsKey = `last_seen_alerts_${user.id}`;
       const lastSeenStr = localStorage.getItem(alertsKey);
       const lastSeen = lastSeenStr ? JSON.parse(lastSeenStr) : [];
       
-      setBudgetAlerts(data);
+      setBudgetAlerts(alerts);
       
       // Calculate new alerts (not in last seen)
       // Use budgetId to track individual budgets, not just category/month/year
-      const newAlerts = data.filter(alert => 
+      const newAlerts = alerts.filter(alert => 
         !lastSeen.some(seen => seen.budgetId === alert.budgetId)
       );
       
@@ -189,34 +223,61 @@ function Dashboard({ user, onLogout }) {
       updateUnreadCount(newAlerts.length, newBills.length);
     } catch (error) {
       console.error('Error fetching budget alerts:', error);
+      setBudgetAlerts([]);
     }
   };
 
   const fetchBudgets = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/budgets?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/budgets`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch budgets');
+      }
+      
       const data = await response.json();
-      setBudgets(data);
+      setBudgets(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching budgets:', error);
+      setBudgets([]);
     }
   };
 
   const fetchUpcomingBills = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bills/upcoming?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/bills/upcoming`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch upcoming bills');
+      }
+      
       const data = await response.json();
       console.log('Upcoming bills:', data);
+      
+      // Ensure data is an array
+      const bills = Array.isArray(data) ? data : [];
       
       // Check if bills have changed
       const billsKey = `last_seen_bills_${user.id}`;
       const lastSeenStr = localStorage.getItem(billsKey);
       const lastSeen = lastSeenStr ? JSON.parse(lastSeenStr) : [];
       
-      setUpcomingBills(data);
+      setUpcomingBills(bills);
       
       // Calculate new bills (not in last seen)
-      const newBills = data.filter(bill => 
+      const newBills = bills.filter(bill => 
         !lastSeen.some(seen => seen._id === bill._id)
       );
       
@@ -233,6 +294,7 @@ function Dashboard({ user, onLogout }) {
       updateUnreadCount(newAlerts.length, newBills.length);
     } catch (error) {
       console.error('Error fetching upcoming bills:', error);
+      setUpcomingBills([]);
     }
   };
 

@@ -18,7 +18,7 @@ function Goals({ userId }) {
     }
   }, [userId]);
 
-  const fetchGoals = async () => {
+  const fetchGoals = async (skipAllocation = false) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/goals`, {
@@ -35,8 +35,10 @@ function Goals({ userId }) {
       const data = await response.json();
       setGoals(Array.isArray(data) ? data : []);
       
-      // Allocate savings after fetching goals
-      await allocateSavings();
+      // Only allocate savings on initial load, not after every fetch
+      if (!skipAllocation) {
+        await allocateSavings();
+      }
     } catch (error) {
       console.error('Error fetching goals:', error);
       setGoals([]);
@@ -57,18 +59,8 @@ function Goals({ userId }) {
       if (response.ok) {
         const data = await response.json();
         console.log('Savings allocated:', data);
-        // Fetch goals again to get updated amounts
-        const goalsResponse = await fetch(`http://localhost:5000/api/goals`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (goalsResponse.ok) {
-          const updatedGoals = await goalsResponse.json();
-          setGoals(Array.isArray(updatedGoals) ? updatedGoals : []);
-        }
+        // Fetch goals again to get updated amounts (skip re-allocation to prevent loop)
+        await fetchGoals(true);
       }
     } catch (error) {
       console.error('Error allocating savings:', error);
@@ -111,7 +103,8 @@ function Goals({ userId }) {
           targetAmount: '',
           targetDate: ''
         });
-        await fetchGoals();
+        // Fetch goals and reallocate savings after creating/updating
+        await fetchGoals(false);
       } else {
         alert(`Failed to save goal: ${data.message || 'Unknown error'}`);
       }
