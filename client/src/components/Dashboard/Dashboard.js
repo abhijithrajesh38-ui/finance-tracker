@@ -44,8 +44,14 @@ function Dashboard({ user, onLogout }) {
   // Refresh data when returning to dashboard
   useEffect(() => {
     if (user && user.id && currentPage === 'dashboard') {
+      console.log('Dashboard: Refreshing data on page change');
+      setLoading(true);
+      fetchTransactions();
       fetchUpcomingBills();
       fetchBudgetAlerts();
+      fetchBudgets();
+      fetchAiInsights();
+      fetchFinancialHealth();
     }
   }, [currentPage, user]);
 
@@ -92,7 +98,18 @@ function Dashboard({ user, onLogout }) {
   const fetchAiInsights = async () => {
     try {
       setAiLoading(true);
-      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch AI insights');
+      }
+      
       const data = await response.json();
       setAiInsights(Array.isArray(data.insights) ? data.insights : []);
     } catch (error) {
@@ -105,9 +122,31 @@ function Dashboard({ user, onLogout }) {
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions?userId=${user.id}`);
+      console.log('Dashboard: Fetching transactions...');
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('Dashboard: NO TOKEN - Cannot fetch transactions');
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:5000/api/transactions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('Dashboard: Failed to fetch transactions, status:', response.status);
+        throw new Error('Failed to fetch transactions');
+      }
+      
       const data = await response.json();
-      setTransactions(data);
+      console.log('Dashboard: Received transactions:', Array.isArray(data) ? data.length : 'NOT AN ARRAY');
+      setTransactions(Array.isArray(data) ? data : []);
       setLoading(false);
       // Refresh alerts and budgets after fetching transactions
       fetchBudgetAlerts();
@@ -251,6 +290,10 @@ function Dashboard({ user, onLogout }) {
   };
 
   const filteredTransactions = getFilteredTransactions();
+  
+  console.log('Dashboard: Total transactions:', transactions.length);
+  console.log('Dashboard: Filtered transactions:', filteredTransactions.length);
+  console.log('Dashboard: Chart filter:', chartFilter);
 
   // Calculate totals for current period - with safety checks
   const totalIncome = Array.isArray(filteredTransactions)
@@ -264,6 +307,9 @@ function Dashboard({ user, onLogout }) {
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0)
     : 0;
+  
+  console.log('Dashboard: Total Income:', totalIncome);
+  console.log('Dashboard: Total Expenses:', totalExpenses);
   
   const totalBalance = totalIncome - totalExpenses;
   const netSavings = totalIncome - totalExpenses;

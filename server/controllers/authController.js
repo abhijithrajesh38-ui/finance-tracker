@@ -3,7 +3,9 @@ import jwt from 'jsonwebtoken';
 
 // Generate JWT token
 const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET || 'your-secret-key', {
+  const secret = process.env.JWT_SECRET || 'your-secret-key';
+  console.log('Generating token with secret:', secret ? 'EXISTS' : 'MISSING');
+  return jwt.sign({ id: userId }, secret, {
     expiresIn: '7d'
   });
 };
@@ -45,22 +47,31 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
+    console.log('Login attempt for:', email);
+    
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('User not found:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
     
+    console.log('User found, checking password...');
+    
     // Check password using bcrypt comparison
     const isPasswordValid = await user.comparePassword(password);
+    console.log('Password valid:', isPasswordValid);
+    
     if (!isPasswordValid) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
     
     // Generate token
     const token = generateToken(user._id);
+    console.log('Token generated:', token ? 'YES' : 'NO');
+    console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'null');
     
-    res.json({ 
+    const response = { 
       message: 'Login successful',
       token,
       user: { 
@@ -68,8 +79,13 @@ export const login = async (req, res) => {
         fullName: user.fullName, 
         email: user.email 
       }
-    });
+    };
+    
+    console.log('Sending response:', JSON.stringify(response, null, 2));
+    
+    res.json(response);
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

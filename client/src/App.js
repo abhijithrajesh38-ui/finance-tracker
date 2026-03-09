@@ -25,6 +25,11 @@ function App() {
           localStorage.removeItem('user');
           localStorage.removeItem('token');
         }
+      } else if (savedUser && !savedToken) {
+        // User exists but no token - old session, clear it
+        console.log('Old session detected without token, clearing...');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
       }
     } catch (error) {
       console.error('Error loading user from localStorage:', error);
