@@ -33,6 +33,10 @@ const goalSchema = new mongoose.Schema({
   category: {
     type: String,
     default: 'General'
+  },
+  achieved: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

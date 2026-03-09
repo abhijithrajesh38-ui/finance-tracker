@@ -12,7 +12,13 @@ export const getInsights = async (req, res) => {
     url.searchParams.set('userId', userId);
     if (days) url.searchParams.set('days', String(days));
 
-    const resp = await fetch(url);
+    // Add 8 second timeout for AI service
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
     const text = await resp.text();
 
     if (!resp.ok) {
@@ -21,6 +27,9 @@ export const getInsights = async (req, res) => {
 
     res.type('application/json').send(text);
   } catch (error) {
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ message: 'AI service timeout' });
+    }
     res.status(500).json({ message: 'AI service error', error: error.message });
   }
 };
@@ -37,7 +46,13 @@ export const getFinancialHealth = async (req, res) => {
     url.searchParams.set('userId', userId);
     if (period) url.searchParams.set('period', period);
 
-    const resp = await fetch(url);
+    // Add 8 second timeout for AI service
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
     const text = await resp.text();
 
     if (!resp.ok) {
@@ -46,6 +61,9 @@ export const getFinancialHealth = async (req, res) => {
 
     res.type('application/json').send(text);
   } catch (error) {
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ message: 'AI service timeout' });
+    }
     res.status(500).json({ message: 'AI service error', error: error.message });
   }
 };

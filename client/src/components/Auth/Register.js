@@ -66,8 +66,21 @@ function Register() {
       const data = await response.json();
       
       if (response.ok) {
-        alert('Registration successful! Please login.');
-        navigate('/login');
+        console.log('Register: Response data:', data);
+        console.log('Register: Token received:', data.token ? 'YES' : 'NO');
+        
+        if (data.token) {
+          // Store token and user data, then go to dashboard
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          console.log('Register: Token stored, redirecting to dashboard');
+          alert('Registration successful!');
+          navigate('/dashboard');
+        } else {
+          // No token, go to login
+          alert('Registration successful! Please login.');
+          navigate('/login');
+        }
       } else {
         alert(data.message || 'Registration failed');
       }

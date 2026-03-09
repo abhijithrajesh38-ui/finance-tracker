@@ -31,6 +31,7 @@ function Dashboard({ user, onLogout }) {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [upcomingBills, setUpcomingBills] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [goals, setGoals] = useState([]);
 
   const [financialHealth, setFinancialHealth] = useState(null);
   const [financialHealthLoading, setFinancialHealthLoading] = useState(false);
@@ -41,24 +42,36 @@ function Dashboard({ user, onLogout }) {
 
   console.log('Dashboard user object:', user);
 
-  // Refresh data when returning to dashboard
-  useEffect(() => {
-    if (user && user.id && currentPage === 'dashboard') {
-      fetchUpcomingBills();
-      fetchBudgetAlerts();
-    }
-  }, [currentPage, user]);
-
+  // Fetch data once on mount and when returning to dashboard
   useEffect(() => {
     if (user && user.id) {
-      fetchTransactions();
-      fetchBudgetAlerts();
-      fetchBudgets();
+      console.log('Dashboard: Loading data');
+      setLoading(true);
+      
+      // Fetch all data
+      const fetchAllData = async () => {
+        await Promise.all([
+          fetchTransactions(),
+          fetchBudgetAlerts(),
+          fetchBudgets(),
+          fetchUpcomingBills(),
+          fetchGoals()
+        ]);
+        
+        // Calculate unread count after all fetches complete
+        // Use setTimeout to ensure state updates have completed
+        setTimeout(() => {
+          calculateUnreadCount();
+        }, 100);
+      };
+      
+      fetchAllData();
+      
+      // AI calls are non-blocking - don't wait for them
       fetchAiInsights();
-      fetchUpcomingBills();
       fetchFinancialHealth();
     }
-  }, [user]);
+  }, [user, currentPage]);
 
   const fetchFinancialHealth = async (period = healthPeriod) => {
     try {
@@ -66,7 +79,21 @@ function Dashboard({ user, onLogout }) {
       setFinancialHealthError('');
       setHealthDropNotification('');
 
-      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}&period=${period}`);
+      const token = localStorage.getItem('token');
+      
+      // Add 10 second timeout for AI service
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`http://localhost:5000/api/ai/financial-health?userId=${user.id}&period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
 
       if (!response.ok) {
@@ -82,7 +109,11 @@ function Dashboard({ user, onLogout }) {
       }
     } catch (error) {
       setFinancialHealth(null);
-      setFinancialHealthError('Financial health analysis unavailable.');
+      if (error.name === 'AbortError') {
+        setFinancialHealthError('AI service timeout - taking too long to respond.');
+      } else {
+        setFinancialHealthError('Financial health analysis unavailable.');
+      }
       console.error('Error fetching financial health:', error);
     } finally {
       setFinancialHealthLoading(false);
@@ -92,11 +123,33 @@ function Dashboard({ user, onLogout }) {
   const fetchAiInsights = async () => {
     try {
       setAiLoading(true);
-      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      
+      // Add 10 second timeout for AI service
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(`http://localhost:5000/api/ai/insights?userId=${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch AI insights');
+      }
+      
       const data = await response.json();
       setAiInsights(Array.isArray(data.insights) ? data.insights : []);
     } catch (error) {
-      console.error('Error fetching AI insights:', error);
+      if (error.name === 'AbortError') {
+        console.log('AI insights timeout - service taking too long');
+      } else {
+        console.error('Error fetching AI insights:', error);
+      }
       setAiInsights([]);
     } finally {
       setAiLoading(false);
@@ -105,9 +158,31 @@ function Dashboard({ user, onLogout }) {
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions?userId=${user.id}`);
+      console.log('Dashboard: Fetching transactions...');
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('Dashboard: NO TOKEN - Cannot fetch transactions');
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:5000/api/transactions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('Dashboard: Failed to fetch transactions, status:', response.status);
+        throw new Error('Failed to fetch transactions');
+      }
+      
       const data = await response.json();
-      setTransactions(data);
+      console.log('Dashboard: Received transactions:', Array.isArray(data) ? data.length : 'NOT AN ARRAY');
+      setTransactions(Array.isArray(data) ? data : []);
       setLoading(false);
       // Refresh alerts and budgets after fetching transactions
       fetchBudgetAlerts();
@@ -120,93 +195,140 @@ function Dashboard({ user, onLogout }) {
 
   const fetchBudgetAlerts = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/budgets/alerts?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/budgets/alerts`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch budget alerts');
+      }
+      
       const data = await response.json();
       console.log('Budget alerts:', data);
       
-      // Check if alerts have changed
-      const alertsKey = `last_seen_alerts_${user.id}`;
-      const lastSeenStr = localStorage.getItem(alertsKey);
-      const lastSeen = lastSeenStr ? JSON.parse(lastSeenStr) : [];
+      // Ensure data is an array
+      const alerts = Array.isArray(data) ? data : [];
+      setBudgetAlerts(alerts);
       
-      setBudgetAlerts(data);
-      
-      // Calculate new alerts (not in last seen)
-      // Use budgetId to track individual budgets, not just category/month/year
-      const newAlerts = data.filter(alert => 
-        !lastSeen.some(seen => seen.budgetId === alert.budgetId)
-      );
-      
-      // Get current bills to calculate total
-      const billsKey = `last_seen_bills_${user.id}`;
-      const lastSeenBillsStr = localStorage.getItem(billsKey);
-      const lastSeenBills = lastSeenBillsStr ? JSON.parse(lastSeenBillsStr) : [];
-      
-      const newBills = upcomingBills.filter(bill => 
-        !lastSeenBills.some(seen => seen._id === bill._id)
-      );
-      
-      // Update unread count
-      updateUnreadCount(newAlerts.length, newBills.length);
+      // Don't calculate unread count here - will be done after both fetches complete
     } catch (error) {
       console.error('Error fetching budget alerts:', error);
+      setBudgetAlerts([]);
     }
   };
 
   const fetchBudgets = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/budgets?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/budgets`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch budgets');
+      }
+      
       const data = await response.json();
-      setBudgets(data);
+      setBudgets(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching budgets:', error);
+      setBudgets([]);
     }
   };
 
   const fetchUpcomingBills = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bills/upcoming?userId=${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/bills/upcoming`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch upcoming bills');
+      }
+      
       const data = await response.json();
       console.log('Upcoming bills:', data);
       
-      // Check if bills have changed
-      const billsKey = `last_seen_bills_${user.id}`;
-      const lastSeenStr = localStorage.getItem(billsKey);
-      const lastSeen = lastSeenStr ? JSON.parse(lastSeenStr) : [];
+      // Ensure data is an array
+      const bills = Array.isArray(data) ? data : [];
+      setUpcomingBills(bills);
       
-      setUpcomingBills(data);
-      
-      // Calculate new bills (not in last seen)
-      const newBills = data.filter(bill => 
-        !lastSeen.some(seen => seen._id === bill._id)
-      );
-      
-      // Get current alerts to calculate total
-      const alertsKey = `last_seen_alerts_${user.id}`;
-      const lastSeenAlertsStr = localStorage.getItem(alertsKey);
-      const lastSeenAlerts = lastSeenAlertsStr ? JSON.parse(lastSeenAlertsStr) : [];
-      
-      const newAlerts = budgetAlerts.filter(alert => 
-        !lastSeenAlerts.some(seen => seen.budgetId === alert.budgetId)
-      );
-      
-      // Update unread count
-      updateUnreadCount(newAlerts.length, newBills.length);
+      // Don't calculate unread count here - will be done after both fetches complete
     } catch (error) {
       console.error('Error fetching upcoming bills:', error);
+      setUpcomingBills([]);
     }
   };
 
-  const updateUnreadCount = (alertsOrCount, billsOrCount) => {
-    const alertCount = typeof alertsOrCount === 'number' ? alertsOrCount : 
-                       (Array.isArray(alertsOrCount) ? alertsOrCount.length : 0);
-    const billCount = typeof billsOrCount === 'number' ? billsOrCount : 
-                      (Array.isArray(billsOrCount) ? billsOrCount.length : 0);
+  const fetchGoals = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/goals`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
+      
+      const data = await response.json();
+      // Filter only active (non-achieved) goals for dashboard display
+      const activeGoals = Array.isArray(data) ? data.filter(g => !g.achieved) : [];
+      setGoals(activeGoals);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      setGoals([]);
+    }
+  };
+
+  // Calculate unread notifications after both alerts and bills are fetched
+  const calculateUnreadCount = () => {
+    // Get last seen alerts
+    const alertsKey = `last_seen_alerts_${user.id}`;
+    const lastSeenAlertsStr = localStorage.getItem(alertsKey);
+    const lastSeenAlerts = lastSeenAlertsStr ? JSON.parse(lastSeenAlertsStr) : [];
     
-    const total = alertCount + billCount;
+    // Get last seen bills
+    const billsKey = `last_seen_bills_${user.id}`;
+    const lastSeenBillsStr = localStorage.getItem(billsKey);
+    const lastSeenBills = lastSeenBillsStr ? JSON.parse(lastSeenBillsStr) : [];
+    
+    // Calculate new alerts
+    const newAlerts = budgetAlerts.filter(alert => 
+      !lastSeenAlerts.some(seen => seen.budgetId === alert.budgetId)
+    );
+    
+    // Calculate new bills
+    const newBills = upcomingBills.filter(bill => 
+      !lastSeenBills.some(seen => seen._id === bill._id)
+    );
+    
+    // Update unread count
+    const total = newAlerts.length + newBills.length;
     setUnreadCount(total);
     setHasUnreadNotifications(total > 0);
   };
+
+  // Recalculate unread count when budgetAlerts or upcomingBills change
+  useEffect(() => {
+    if (user && user.id && (budgetAlerts.length > 0 || upcomingBills.length > 0)) {
+      calculateUnreadCount();
+    }
+  }, [budgetAlerts, upcomingBills]);
 
   // Filter transactions based on chart filter
   const getFilteredTransactions = () => {
@@ -251,6 +373,10 @@ function Dashboard({ user, onLogout }) {
   };
 
   const filteredTransactions = getFilteredTransactions();
+  
+  console.log('Dashboard: Total transactions:', transactions.length);
+  console.log('Dashboard: Filtered transactions:', filteredTransactions.length);
+  console.log('Dashboard: Chart filter:', chartFilter);
 
   // Calculate totals for current period - with safety checks
   const totalIncome = Array.isArray(filteredTransactions)
@@ -264,6 +390,9 @@ function Dashboard({ user, onLogout }) {
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0)
     : 0;
+  
+  console.log('Dashboard: Total Income:', totalIncome);
+  console.log('Dashboard: Total Expenses:', totalExpenses);
   
   const totalBalance = totalIncome - totalExpenses;
   const netSavings = totalIncome - totalExpenses;
@@ -423,9 +552,11 @@ function Dashboard({ user, onLogout }) {
   const maxAmount = Math.max(...chartData.map(d => Math.max(d.income, d.expense)), 1);
 
   const handleNotificationClick = () => {
+    const wasOpen = showNotifications;
     setShowNotifications(!showNotifications);
-    // Mark all current notifications as seen when opened
-    if (!showNotifications && (budgetAlerts.length > 0 || upcomingBills.length > 0)) {
+    
+    // Mark all current notifications as seen when CLOSING the dropdown
+    if (wasOpen && (budgetAlerts.length > 0 || upcomingBills.length > 0)) {
       // Save current alerts and bills as "seen"
       const alertsKey = `last_seen_alerts_${user.id}`;
       const billsKey = `last_seen_bills_${user.id}`;
@@ -851,18 +982,23 @@ function Dashboard({ user, onLogout }) {
                 <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('goals'); }} className="view-all">VIEW ALL</a>
               </div>
               <div className="savings-goals">
-                <div className="goal-circle">
-                  <div className="circle-progress">100%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
-                <div className="goal-circle">
-                  <div className="circle-progress">75%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
-                <div className="goal-circle">
-                  <div className="circle-progress">70%</div>
-                  <div className="goal-label">NEW CAR</div>
-                </div>
+                {goals.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666', gridColumn: '1 / -1' }}>
+                    No active goals. <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('goals'); }} style={{ color: '#1a1a1a', textDecoration: 'underline' }}>Create one</a>
+                  </div>
+                ) : (
+                  goals.slice(0, 3).map(goal => {
+                    const percentage = goal.targetAmount > 0 
+                      ? Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100) 
+                      : 0;
+                    return (
+                      <div key={goal._id} className="goal-circle">
+                        <div className="circle-progress">{percentage}%</div>
+                        <div className="goal-label">{goal.name.toUpperCase()}</div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

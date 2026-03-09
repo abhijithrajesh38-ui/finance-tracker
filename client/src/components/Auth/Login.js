@@ -24,8 +24,21 @@ function Login({ onLoginSuccess }) {
       
       if (response.ok) {
         // Store token and user data
+        console.log('Login: Response data:', data);
+        console.log('Login: Token received:', data.token ? 'YES' : 'NO');
+        console.log('Login: User received:', data.user);
+        
+        if (!data.token) {
+          alert('Error: Server did not return a token. Please check server logs.');
+          return;
+        }
+        
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        console.log('Login: Token stored:', localStorage.getItem('token') ? 'YES' : 'NO');
+        console.log('Login: User stored:', localStorage.getItem('user') ? 'YES' : 'NO');
+        
         onLoginSuccess(data.user);
         navigate('/dashboard');
       } else {

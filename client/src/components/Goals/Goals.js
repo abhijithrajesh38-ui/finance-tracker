@@ -18,7 +18,7 @@ function Goals({ userId }) {
     }
   }, [userId]);
 
-  const fetchGoals = async () => {
+  const fetchGoals = async (skipAllocation = false) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/goals`, {
@@ -35,8 +35,10 @@ function Goals({ userId }) {
       const data = await response.json();
       setGoals(Array.isArray(data) ? data : []);
       
-      // Allocate savings after fetching goals
-      await allocateSavings();
+      // Only allocate savings on initial load, not after every fetch
+      if (!skipAllocation) {
+        await allocateSavings();
+      }
     } catch (error) {
       console.error('Error fetching goals:', error);
       setGoals([]);
@@ -57,18 +59,8 @@ function Goals({ userId }) {
       if (response.ok) {
         const data = await response.json();
         console.log('Savings allocated:', data);
-        // Fetch goals again to get updated amounts
-        const goalsResponse = await fetch(`http://localhost:5000/api/goals`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (goalsResponse.ok) {
-          const updatedGoals = await goalsResponse.json();
-          setGoals(Array.isArray(updatedGoals) ? updatedGoals : []);
-        }
+        // Fetch goals again to get updated amounts (skip re-allocation to prevent loop)
+        await fetchGoals(true);
       }
     } catch (error) {
       console.error('Error allocating savings:', error);
@@ -111,7 +103,8 @@ function Goals({ userId }) {
           targetAmount: '',
           targetDate: ''
         });
-        await fetchGoals();
+        // Fetch goals and reallocate savings after creating/updating
+        await fetchGoals(false);
       } else {
         alert(`Failed to save goal: ${data.message || 'Unknown error'}`);
       }
@@ -155,10 +148,74 @@ function Goals({ userId }) {
     }
   };
 
+  const handleAchieved = async (goal) => {
+    if (window.confirm(`Mark "${goal.name}" as achieved? This will create an expense transaction for ₹${goal.targetAmount.toLocaleString()}.`)) {
+      try {
+        const token = localStorage.getItem('token');
+        
+        // Step 1: Create expense transaction for the goal amount
+        const transactionData = {
+          userId,
+          description: `${goal.name} - Goal Achieved`,
+          amount: goal.targetAmount,
+          category: goal.category || 'Goal',
+          type: 'expense',
+          date: new Date().toISOString(),
+          paymentMethod: 'bank'  // Changed from 'Savings' to 'bank' (valid enum value)
+        };
+        
+        const transactionResponse = await fetch('http://localhost:5000/api/transactions', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify(transactionData)
+        });
+        
+        if (!transactionResponse.ok) {
+          const errorData = await transactionResponse.json();
+          console.error('Transaction creation failed:', errorData);
+          throw new Error(errorData.message || 'Failed to create transaction');
+        }
+
+        // Step 2: Mark goal as achieved
+        const goalUpdateResponse = await fetch(`http://localhost:5000/api/goals/${goal._id}`, {
+          method: 'PUT',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({
+            userId,
+            status: 'completed',
+            currentAmount: 0,
+            achieved: true
+          })
+        });
+        
+        if (!goalUpdateResponse.ok) {
+          const errorData = await goalUpdateResponse.json();
+          console.error('Goal update failed:', errorData);
+          throw new Error(errorData.message || 'Failed to mark goal as achieved');
+        }
+
+        // Step 3: Refresh goals (will trigger reallocation)
+        await fetchGoals(false);
+        
+        alert(`Goal "${goal.name}" marked as achieved! Transaction created.`);
+      } catch (error) {
+        console.error('Error marking goal as achieved:', error);
+        alert(`Error: ${error.message}`);
+      }
+    }
+  };
+
   const totalGoals = goals.length;
-  const activeGoals = goals.filter(g => g.status === 'active');
-  const totalSaved = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
-  const totalTarget = goals.reduce((sum, g) => sum + g.targetAmount, 0);
+  const activeGoals = goals.filter(g => !g.achieved);
+  const achievedGoals = goals.filter(g => g.achieved);
+  const totalSaved = activeGoals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
+  const totalTarget = activeGoals.reduce((sum, g) => sum + g.targetAmount, 0);
 
   const getPercentage = (current, target) => {
     return target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
@@ -185,7 +242,7 @@ function Goals({ userId }) {
         <div className="summary-card-goal">
           <div className="summary-label">Total Goals</div>
           <div className="summary-value">{totalGoals}</div>
-          <div className="summary-count">{activeGoals.length} active goals</div>
+          <div className="summary-count">{activeGoals.length} active • {achievedGoals.length} achieved</div>
         </div>
         <div className="summary-card-goal">
           <div className="summary-label">Total Saved</div>
@@ -200,12 +257,12 @@ function Goals({ userId }) {
       </div>
 
       <div className="goals-section">
-        <h2>Goals</h2>
-        {goals.length === 0 ? (
-          <div className="no-goals">No goals yet. Click "+ Add Goal" to create one.</div>
+        <h2>Active Goals</h2>
+        {activeGoals.length === 0 ? (
+          <div className="no-goals">No active goals. Click "+ Add Goal" to create one.</div>
         ) : (
           <div className="goals-grid">
-            {goals.map(goal => {
+            {activeGoals.map(goal => {
               const currentAmount = goal.currentAmount || 0;
               const percentage = getPercentage(currentAmount, goal.targetAmount);
               const remaining = Math.max(0, goal.targetAmount - currentAmount);
@@ -217,8 +274,14 @@ function Goals({ userId }) {
                   <div className="goal-header">
                     <h3>{goal.name}</h3>
                     <div className="goal-actions">
-                      {!isCompleted && <button className="icon-btn" onClick={() => handleEdit(goal)}><MdEdit /></button>}
-                      <button className="icon-btn" onClick={() => handleDelete(goal._id)}><MdDelete /></button>
+                      {!isCompleted && (
+                        <button className="icon-btn" onClick={() => handleEdit(goal)}>
+                          <MdEdit />
+                        </button>
+                      )}
+                      <button className="icon-btn" onClick={() => handleDelete(goal._id)}>
+                        <MdDelete />
+                      </button>
                     </div>
                   </div>
                   
@@ -249,7 +312,13 @@ function Goals({ userId }) {
                           <span className="current">₹{goal.targetAmount.toLocaleString()}</span>
                         </div>
                         <div className="goal-completed-badge">✓ Completed</div>
-                        <div className="goal-date">Achieved: {new Date(goal.updatedAt).toLocaleDateString()}</div>
+                        <div className="goal-date">Completed: {new Date(goal.updatedAt).toLocaleDateString()}</div>
+                        <button 
+                          className="achieved-btn" 
+                          onClick={() => handleAchieved(goal)}
+                        >
+                          Mark as Achieved
+                        </button>
                       </>
                     ) : (
                       <>
@@ -271,6 +340,54 @@ function Goals({ userId }) {
           </div>
         )}
       </div>
+
+      {achievedGoals.length > 0 && (
+        <div className="goals-section">
+          <h2>Achieved Goals</h2>
+          <div className="goals-grid">
+            {achievedGoals.map(goal => (
+              <div key={goal._id} className="goal-card achieved">
+                <div className="goal-header">
+                  <h3>{goal.name}</h3>
+                  <div className="goal-actions">
+                    <button className="icon-btn" onClick={() => handleDelete(goal._id)}>
+                      <MdDelete />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="goal-progress-circle">
+                  <svg width="120" height="120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#e0e0e0" strokeWidth="10"/>
+                    <circle 
+                      cx="60" 
+                      cy="60" 
+                      r="50" 
+                      fill="none" 
+                      stroke="#4caf50"
+                      strokeWidth="10"
+                      strokeDasharray="314 314"
+                      strokeLinecap="round"
+                      transform="rotate(-90 60 60)"
+                    />
+                    <text x="60" y="65" textAnchor="middle" fontSize="24" fontWeight="bold" fill="#4caf50">
+                      100%
+                    </text>
+                  </svg>
+                </div>
+                
+                <div className="goal-details">
+                  <div className="goal-amount">
+                    <span className="current">₹{goal.targetAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="goal-completed-badge">✓ Achieved</div>
+                  <div className="goal-date">Achieved: {new Date(goal.updatedAt).toLocaleDateString()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
